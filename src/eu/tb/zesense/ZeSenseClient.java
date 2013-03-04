@@ -66,6 +66,8 @@ import java.util.logging.Level;
 
 import org.jfree.ui.RefineryUtilities;
 
+import ch.ethz.inf.vs.californium.coap.CommunicatorFactory;
+import ch.ethz.inf.vs.californium.coap.CommunicatorFactory.Communicator;
 import ch.ethz.inf.vs.californium.coap.DELETERequest;
 import ch.ethz.inf.vs.californium.coap.GETRequest;
 import ch.ethz.inf.vs.californium.coap.Option;
@@ -115,6 +117,8 @@ public class ZeSenseClient {
 	    
 		streams = new ArrayList<ZeStream>();
 		
+		
+		CommunicatorFactory.getInstance().setUdpPort(48225);
 		
 		// initialize parameters
 		String method = null;
@@ -256,6 +260,7 @@ public class ZeSenseClient {
 								event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
 								event.timestamp = timestamp;
 								event.sequenceNumber = sequenceNumber;
+								event.meaning = Registry.PLAYOUT_VALID;
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -300,7 +305,7 @@ public class ZeSenseClient {
 							
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 2000000000L;
+								long blindDelay = 1000000000L;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}
 							

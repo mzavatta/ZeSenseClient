@@ -1,7 +1,5 @@
 package eu.tb.zesense;
 
-import org.jfree.ui.RefineryUtilities;
-
 public class ZeAccelDisplayDevice extends Thread {
 	
 	ZePlayoutManager playoutManager;
@@ -9,6 +7,7 @@ public class ZeAccelDisplayDevice extends Thread {
 	ZeMeters meter;
 	
 	float a = 5;
+	int count = 0;
 	
 	@Override
 	public void run() {
@@ -23,7 +22,13 @@ public class ZeAccelDisplayDevice extends Thread {
 	    while (true) {
 	   
 	    	ZeAccelElement elem = (ZeAccelElement) playoutManager.get();
-	    	meter.accelDataset.setValue(new Float(elem.z));
+	    	if (elem.meaning == Registry.PLAYOUT_VALID) {
+	    		meter.accelDataset.setValue(new Float(elem.z));
+	    	}
+	    	else if (elem.meaning == Registry.PLAYOUT_BUFFER_EMPTY) {
+	    		count++;
+	    		meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
+	    	}
 	    	
 			try {
 				Thread.sleep(Registry.ACCEL_PLAYOUT_PERIOD);

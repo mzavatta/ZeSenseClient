@@ -40,6 +40,7 @@ public class ZeMeters extends ApplicationFrame {
     public DefaultValueDataset locationDataset, loctionBufferDataset;
     XYSeriesCollection accelBufferDataset;
     XYSeries accelBufferSeries;
+    XYSeries accelUnderflowSeries;
    
     /**
      * Creates a new demo.
@@ -61,10 +62,12 @@ public class ZeMeters extends ApplicationFrame {
      */
     public JPanel createDemoPanel() {
     	accelBufferSeries = new XYSeries("Accel Buffer");
+    	accelUnderflowSeries = new XYSeries("Accel Underflow");
     	//accelBufferSeries.add(1.0, 1.0);
     	//accelBufferSeries.add(2.0, 4.0);
     	XYSeriesCollection accelBufferDataset = new XYSeriesCollection();
     	accelBufferDataset.addSeries(accelBufferSeries);
+    	accelBufferDataset.addSeries(accelUnderflowSeries);
         accelDataset = new DefaultValueDataset(0.0);
         locationDataset = new DefaultValueDataset(0.0);
         JFreeChart accelChart = createChart(accelDataset, "Accelerometer");

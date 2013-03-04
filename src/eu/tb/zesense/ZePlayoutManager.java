@@ -43,7 +43,12 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 				System.out.println("Giving data");
 				return pollFirst();
 			}
-			else break;
+			else {
+				System.out.println("Giving invalidate");
+				ZeAccelElement silence = new ZeAccelElement();
+				silence.meaning = Registry.PLAYOUT_HOLD; //actually 1 means hold
+				return silence;
+			}
 			/*
 			 * later here I should give hold if I have a future sample in the buffer
 			 * but the current one is still valid at now time
@@ -51,10 +56,11 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 			 * sample freq)
 			 */
 		}
-		System.out.println("Giving invalidate");
-		ZeAccelElement silence = new ZeAccelElement();
-		silence.meaning = 1;
-		return silence;
+		System.out.println("Buffer underflow");
+		ZeAccelElement empty = new ZeAccelElement();
+		empty.meaning = Registry.PLAYOUT_BUFFER_EMPTY;
+		return empty;
+
 		
 		/*
 			try {
