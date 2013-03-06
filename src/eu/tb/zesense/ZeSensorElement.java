@@ -10,6 +10,7 @@ public class ZeSensorElement implements Comparable<ZeSensorElement>  {
 	/* Timing parameters in sender's terms. */
 	int timestamp;	
 	long wallclock;
+	long expiry; //in sender's wallclock terms
 	
 	/* In receiver's terms. */
 	long arrivalTime;

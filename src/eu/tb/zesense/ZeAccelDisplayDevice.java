@@ -7,7 +7,6 @@ public class ZeAccelDisplayDevice extends Thread {
 	ZeMeters meter;
 	
 	float a = 5;
-	int count = 0;
 	
 	@Override
 	public void run() {
@@ -19,15 +18,25 @@ public class ZeAccelDisplayDevice extends Thread {
 			e1.printStackTrace();
 		}
 		
-	    while (true) {
+	    while (ZeSenseClient.loop) {
 	   
 	    	ZeAccelElement elem = (ZeAccelElement) playoutManager.get();
-	    	if (elem.meaning == Registry.PLAYOUT_VALID) {
-	    		meter.accelDataset.setValue(new Float(elem.z));
+			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,
+					playoutManager.size());
+	    	if (elem != null) { //buffer found empty
+
+		    	if (elem.meaning == Registry.PLAYOUT_VALID) {
+		    		meter.accelDataset.setValue(new Float(elem.z));
+		    	}
+		    	else if (elem.meaning == Registry.PLAYOUT_INVALID) {
+		    		meter.accelDataset.setValue(new Float(0));
+		    	}
 	    	}
-	    	else if (elem.meaning == Registry.PLAYOUT_BUFFER_EMPTY) {
-	    		count++;
-	    		meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
+	    	else {
+	    		meter.accelDataset.setValue(new Float(0)); //invalid and buffer underflow result
+	    		//in the same effect for the user but streamwise they are not the same
+	    		//thing
+	    		//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
 	    	}
 	    	
 			try {
@@ -36,5 +45,7 @@ public class ZeAccelDisplayDevice extends Thread {
 				e.printStackTrace();
 			}
 	    }
+	    
+	    System.out.println("Underflow count = "+playoutManager.underflowCount);
 	}
 }

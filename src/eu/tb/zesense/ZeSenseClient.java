@@ -53,6 +53,8 @@
 
 package eu.tb.zesense;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -63,6 +65,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.Level;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 import org.jfree.ui.RefineryUtilities;
 
@@ -82,7 +88,7 @@ import ch.ethz.inf.vs.californium.endpoint.resources.RemoteResource;
 import ch.ethz.inf.vs.californium.endpoint.resources.Resource;
 import ch.ethz.inf.vs.californium.util.Log;
 
-public class ZeSenseClient {
+public class ZeSenseClient extends JFrame {
 
 	//long mpo; //master playout dynamic offset
 	//calculated as the offset from the common sender
@@ -96,9 +102,31 @@ public class ZeSenseClient {
 	ZeAccelDisplayDevice accelDev;
 	
 	public static final String HOST = "coap://192.168.43.1:5683";
-	public static final String ACCEL_RESOURCE_PATH = "/accel";
+	public static final String ACCEL_RESOURCE_PATH = "/proximity";
+	
+	static boolean loop = false;
 
+	public ZeSenseClient() {
+	    setTitle("ZeSenseClient");
+	    setSize(300, 200);
+	    //setLocationRelativeTo(null);
+	    setDefaultCloseOperation(EXIT_ON_CLOSE);
+	}
+	
 	void zeSenseClient () {
+	
+		JPanel panel = new JPanel();
+		getContentPane().add(panel);
+		panel.setLayout(null);
+		JButton quitButton = new JButton("Quit");
+		quitButton.setBounds(50, 60, 80, 30);
+		quitButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent event) {
+				loop = false;
+			}
+		});
+		panel.add(quitButton);
+		setVisible(true);
 		
 		meters = new ZeMeters("ZeSense Monitors Panel");
 	    meters.pack();
@@ -109,6 +137,9 @@ public class ZeSenseClient {
 		
 		accelPlayoutManager = new ZePlayoutManager();
 		accelPlayoutManager.master = masterPlayoutManager;
+		accelPlayoutManager.playoutFreq = Registry.ACCEL_PLAYOUT_FREQ;
+		accelPlayoutManager.playoutPer = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
+		accelPlayoutManager.playoutHalfPer = Registry.ACCEL_PLAYOUT_HALF_PERIOD * 1000000;
 		
 		accelDev = new ZeAccelDisplayDevice();
 		accelDev.playoutManager = accelPlayoutManager;
@@ -124,13 +155,11 @@ public class ZeSenseClient {
 		String method = null;
 		URI uri = null;
 		String payload = null;
-		boolean loop = false;
-
 		
 		boolean firstSR = true;
 		//ZePlayoutBuffer<ZeAccelElement> a = new ZePlayoutBuffer<ZeAccelElement>();
 		
-
+		
 		Log.setLevel(Level.ALL);
 		Log.init();
 
@@ -187,7 +216,7 @@ public class ZeSenseClient {
 		request.enableResponseQueue(true);		
 		
 		// register a new stream associated with this token
-		streams.add(new ZeStream(sendToken, ACCEL_RESOURCE_PATH));
+		streams.add(new ZeStream(sendToken, ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
 		
 		request.prettyPrint();
 		// execute request
@@ -262,6 +291,8 @@ public class ZeSenseClient {
 								event.sequenceNumber = sequenceNumber;
 								event.meaning = Registry.PLAYOUT_VALID;
 								
+								recStream.registerArrival(event);
+								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
 										" length:"+length+
@@ -272,7 +303,9 @@ public class ZeSenseClient {
 										" z:"+event.z);
 								
 								/* Cannot send to playout if I haven't got at least
-								 * an Sender Report with timing mapping. */
+								 * an Sender Report with timing mapping. Although
+								 * conceptually this evaluation should be moved
+								 * inside the playout manager.. */
 								if (recStream.timingReady) {
 									recStream.toWallclock(event);
 									/* Yes the playouts should belong to a stream... */
@@ -282,6 +315,10 @@ public class ZeSenseClient {
 								}
 								else
 									System.out.println("Not sending to playout, timing still unknown.");
+								
+								if (recStream.packetsReceived == 40) {
+									masterPlayoutManager.mpo+=500000000L;
+								}
 							}
 		
 						}
@@ -372,6 +409,9 @@ public class ZeSenseClient {
 		} while (loop);
 		
 
+		// Print out some stats
+		
+		
 		// finish
 		System.out.println();
 	}

@@ -111,7 +111,9 @@ public class ZeMeters extends ApplicationFrame {
      */
     private static JFreeChart createChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
-        plot.addInterval(new MeterInterval("High", new Range(80.0, 100.0)));
+        plot.setRange(new Range(-20, 20));
+        plot.addInterval(new MeterInterval("High", new Range(15, 20)));
+        plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
         plot.setDialOutlinePaint(Color.white);
         JFreeChart chart = new JFreeChart(name,
                 JFreeChart.DEFAULT_TITLE_FONT, plot, false);

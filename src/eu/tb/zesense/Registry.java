@@ -47,6 +47,12 @@ public class Registry {
 	public static final int WALLCLOCK_FREQ = 1000000000; //Hz
 	public static final int TIMESTAMP_FREQ = 1000; //Hz
 	
+	/* Debug value, in a good implementation this value is decided
+	 * request by request and communicated to the server as a resource
+	 * query string or something similar.
+	 */
+	public static final int ACCEL_STREAM_FREQ = 5;
+	
 	
 	public static final int ACCEL_PLAYOUT_FREQ = 10; //HZ
 	public static final int ACCEL_PLAYOUT_PERIOD = 100; //msec
@@ -56,6 +62,5 @@ public class Registry {
 	public static final int PLAYOUT_HOLD = 1;
 	public static final int PLAYOUT_VALID = 2;
 	public static final int PLAYOUT_INVALID = 3;
-	public static final int PLAYOUT_BUFFER_EMPTY = 4;
 
 }
