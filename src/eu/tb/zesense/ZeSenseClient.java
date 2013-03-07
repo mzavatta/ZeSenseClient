@@ -320,6 +320,44 @@ public class ZeSenseClient extends JFrame {
 									masterPlayoutManager.mpo+=500000000L;
 								}
 							}
+							
+							if (sensorType == Registry.SENSOR_TYPE_PROXIMITY) {
+								
+								ZeProxElement event = new ZeProxElement();
+								event.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+								event.timestamp = timestamp;
+								event.sequenceNumber = sequenceNumber;
+								event.meaning = Registry.PLAYOUT_VALID;
+								
+								recStream.registerArrival(event);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" dist:"+event.distance);
+								
+								/* Cannot send to playout if I haven't got at least
+								 * an Sender Report with timing mapping. Although
+								 * conceptually this evaluation should be moved
+								 * inside the playout manager.. */
+								if (recStream.timingReady) {
+									recStream.toWallclock(event);
+									/* Yes the playouts should belong to a stream... */
+									accelPlayoutManager.add(event);
+									meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
+											accelPlayoutManager.size());
+								}
+								else
+									System.out.println("Not sending to playout, timing still unknown.");
+								
+								if (recStream.packetsReceived == 40) {
+									masterPlayoutManager.mpo+=500000000L;
+								}
+							}
+							
+							
 		
 						}
 						else if (packetType == Registry.SENDREPORT) {
