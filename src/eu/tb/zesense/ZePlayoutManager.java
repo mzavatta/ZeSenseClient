@@ -2,7 +2,7 @@ package eu.tb.zesense;
 
 import java.util.TreeSet;
 
-public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
+public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	
 	/*
 	 * Does not make sense to have stream-specific data
@@ -23,7 +23,7 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 	int holdcount = 0;
 	int underflowCount  = 0;
 	
-	ZeSensorElement current;
+	E current;
 
 	
 	ZeMasterPlayoutManager master;
@@ -36,7 +36,7 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 	}
 	
 	
-	public synchronized ZeSensorElement get() {
+	public synchronized ZePlayoutElement<E> get() {
 		
 		long now = playoutToSystem();
 		
@@ -50,8 +50,11 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 					(first().wallclock+master.mpo) <= (now+playoutHalfPer) ) {
 				System.out.println("Giving data");
 				resetHoldCount();
+				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				current = pollFirst();
-				return current;
+				elem.element = current;
+				elem.meaning = Registry.PLAYOUT_VALID;
+				return elem;
 			}
 			else {
 				if (current != null) { //not in the first interrupt requests
@@ -59,16 +62,18 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 						// give hold
 						holdcount++;
 						System.out.println("Giving hold and buffer still full");
-						ZeAccelElement hold = new ZeAccelElement();
-						hold.meaning = Registry.PLAYOUT_HOLD;
-						return hold;
+						ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+						elem.element = null;
+						elem.meaning = Registry.PLAYOUT_HOLD;
+						return elem;
 					}
 				}
 				System.out.println("Giving invalidate");
 				resetHoldCount();
-				ZeAccelElement invalid = new ZeAccelElement();
-				invalid.meaning = Registry.PLAYOUT_INVALID;
-				return invalid;
+				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+				elem.element = null;
+				elem.meaning = Registry.PLAYOUT_INVALID;
+				return elem;
 			}
 		}
 		if (current != null) { //not in the first interrupt requests
@@ -76,19 +81,25 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 				// give hold
 				holdcount++;
 				System.out.println("Found empty but holding");
-				ZeAccelElement hold = new ZeAccelElement();
-				hold.meaning = Registry.PLAYOUT_HOLD;
-				return hold;
+				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+				elem.element = null;
+				elem.meaning = Registry.PLAYOUT_HOLD;
+				return elem;
 			}
 			else {
 				System.out.println("Found empty and current expired: underflow");
 				underflowCount++;
-				return null;
+				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+				elem.element = null;
+				elem.meaning = Registry.PLAYOUT_INVALID;
+				return elem;
 			}
 		}
 		System.out.println("Found empty but playout not yet started");
-		return null; //buffer found empty
-
+		ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+		elem.element = null;
+		elem.meaning = Registry.PLAYOUT_INVALID;
+		return elem; //buffer found empty
 	}
 	
 	void resetHoldCount() {
@@ -97,8 +108,7 @@ public class ZePlayoutManager extends TreeSet<ZeSensorElement> {
 	}
 		
 	
-	public synchronized boolean add(ZeSensorElement elem) {
-		
+	public synchronized boolean add(E elem) {
 		return super.add(elem);
 	}
 	

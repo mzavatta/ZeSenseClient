@@ -20,6 +20,9 @@ public class ZeSensorElement implements Comparable<ZeSensorElement>  {
 	 * but changes continuously depending on the master stream.
 	 */
 	
+	/* 0 if normal value, 1 if "hold previous", 2 if "invalid". */
+	//int meaning;
+	
 	@Override
 	public int compareTo(ZeSensorElement o) {
 		if (this.timestamp < o.timestamp) return -1;

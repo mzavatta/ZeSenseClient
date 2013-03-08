@@ -6,7 +6,8 @@ public class ZeAccelElement extends ZeSensorElement {
 	float y;
 	float z;
 	
-	/* 0 if normal value, 1 if "hold previous", 2 if "invalid". */
-	int meaning;
+	float getZ() {
+		return z;
+	}
 	
 }

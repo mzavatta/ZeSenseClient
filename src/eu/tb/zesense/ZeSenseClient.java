@@ -98,11 +98,16 @@ public class ZeSenseClient extends JFrame {
 	ZeMasterPlayoutManager masterPlayoutManager;
 	
 	ArrayList<ZeStream> streams;
-	ZePlayoutManager accelPlayoutManager;
+	
+	ZePlayoutManager<ZeAccelElement> accelPlayoutManager;
 	ZeAccelDisplayDevice accelDev;
 	
+	ZePlayoutManager<ZeProxElement> proxPlayoutManager;
+	ZeProxDisplayDevice proxDev;
+	
 	public static final String HOST = "coap://192.168.43.1:5683";
-	public static final String ACCEL_RESOURCE_PATH = "/proximity";
+	public static final String ACCEL_RESOURCE_PATH = "/accel";
+	public static final String PROX_RESOURCE_PATH = "/proximity";
 	
 	static boolean loop = false;
 
@@ -135,7 +140,7 @@ public class ZeSenseClient extends JFrame {
 	    
 	    masterPlayoutManager = new ZeMasterPlayoutManager();
 		
-		accelPlayoutManager = new ZePlayoutManager();
+		accelPlayoutManager = new ZePlayoutManager<ZeAccelElement>();
 		accelPlayoutManager.master = masterPlayoutManager;
 		accelPlayoutManager.playoutFreq = Registry.ACCEL_PLAYOUT_FREQ;
 		accelPlayoutManager.playoutPer = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
@@ -145,7 +150,18 @@ public class ZeSenseClient extends JFrame {
 		accelDev.playoutManager = accelPlayoutManager;
 		accelDev.meter = meters;
 		accelDev.start();
-	    
+		
+		proxPlayoutManager = new ZePlayoutManager<ZeProxElement>();
+		proxPlayoutManager.master = masterPlayoutManager;
+		proxPlayoutManager.playoutFreq = Registry.PROX_PLAYOUT_FREQ;
+		proxPlayoutManager.playoutPer = Registry.PROX_PLAYOUT_PERIOD * 1000000;
+		proxPlayoutManager.playoutHalfPer = Registry.PROX_PLAYOUT_HALF_PERIOD * 1000000;
+		
+		proxDev = new ZeProxDisplayDevice();
+		proxDev.playoutManager = proxPlayoutManager;
+		proxDev.meter = meters;
+		proxDev.start();
+		
 		streams = new ArrayList<ZeStream>();
 		
 		
@@ -157,19 +173,14 @@ public class ZeSenseClient extends JFrame {
 		String payload = null;
 		
 		boolean firstSR = true;
-		//ZePlayoutBuffer<ZeAccelElement> a = new ZePlayoutBuffer<ZeAccelElement>();
+		//ZePlayoutBuffer<ZeAccelElement> a = new ZePlayoutBuffer<ZeAccelElement>()
 		
 		
 		Log.setLevel(Level.ALL);
 		Log.init();
 
-		method = "OBSERVE";
-		try {
-			uri = new URI(HOST+ACCEL_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}
-		
+
+		/*
 		// check if mandatory parameters specified
 		if (method == null) {
 			System.err.println("Method not specified");
@@ -179,14 +190,20 @@ public class ZeSenseClient extends JFrame {
 			System.err.println("URI not specified");
 			System.exit(Registry.ERR_MISSING_URI);
 		}
-		
+		*/
+		/*---------------------------------------------------------------------*/
+		method = "OBSERVE";
+		try {
+			uri = new URI(HOST+ACCEL_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}		
 		// create request according to specified method
-		Request request = newRequest(method);
-		if (request == null) {
+		Request accelRequest = newRequest(method);
+		if (accelRequest == null) {
 			System.err.println("Unknown method: " + method);
 			System.exit(Registry.ERR_UNKNOWN_METHOD);
 		}
-
 		// set request URI
 		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
 			// add discovery resource path to URI
@@ -198,30 +215,25 @@ public class ZeSenseClient extends JFrame {
 				System.exit(Registry.ERR_BAD_URI);
 			}
 		}
-		
 		// if we want to observe, set the option
 		if (method.equals("OBSERVE")) {
-			request.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
+			accelRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
 			loop = true;
 		}
-		
 		// cook the request
-		request.setURI(uri);
-		request.setPayload(payload);
-		byte[] sendToken = TokenManager.getInstance().acquireToken();
-		request.setToken( sendToken );
-		request.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		
-		// enable response queue in order to use blocking I/O
-		request.enableResponseQueue(true);		
-		
+		accelRequest.setURI(uri);
+		accelRequest.setPayload(payload);
+		byte[] accelToken = TokenManager.getInstance().acquireToken();
+		accelRequest.setToken( accelToken );
+		accelRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
 		// register a new stream associated with this token
-		streams.add(new ZeStream(sendToken, ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
-		
-		request.prettyPrint();
+		streams.add(new ZeStream(accelToken, ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
+		// enable response queue in order to use blocking I/O
+		accelRequest.enableResponseQueue(true);		
+		accelRequest.prettyPrint();
 		// execute request
 		try {
-			request.execute();
+			accelRequest.execute();
 		} catch (UnknownHostException e) {
 			System.err.println("Unknown host: " + e.getMessage());
 			System.exit(Registry.ERR_REQUEST_FAILED);
@@ -229,6 +241,67 @@ public class ZeSenseClient extends JFrame {
 			System.err.println("Failed to execute request: " + e.getMessage());
 			System.exit(Registry.ERR_REQUEST_FAILED);
 		}
+		/*----------------------------------------------------------------------*/
+		
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+		
+		/*----------------------------------------------------------------------*/
+		method = "OBSERVE";
+		try {
+			uri = new URI(HOST+PROX_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		// create request according to specified method
+		Request proxRequest = newRequest(method);
+		if (proxRequest == null) {
+			System.err.println("Unknown method: " + method);
+			System.exit(Registry.ERR_UNKNOWN_METHOD);
+		}
+		// set request URI
+		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
+			// add discovery resource path to URI
+			try {
+				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
+				
+			} catch (URISyntaxException e) {
+				System.err.println("Failed to parse URI: " + e.getMessage());
+				System.exit(Registry.ERR_BAD_URI);
+			}
+		}
+		// if we want to observe, set the option
+		if (method.equals("OBSERVE")) {
+			proxRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
+			loop = true;
+		}
+		// cook the request
+		proxRequest.setURI(uri);
+		proxRequest.setPayload(payload);
+		byte[] proxToken = TokenManager.getInstance().acquireToken();
+		proxRequest.setToken( proxToken );
+		proxRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		// register a new stream associated with this token
+		streams.add(new ZeStream(proxToken, PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
+		// enable response queue in order to use blocking I/O
+		proxRequest.enableResponseQueue(true);		
+		proxRequest.prettyPrint();
+		// execute request
+		try {
+			proxRequest.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}
+		/*----------------------------------------------------------------------*/
+		
+		int selector = 1;
 		
 		// loop for receiving multiple responses
 		do {
@@ -237,7 +310,14 @@ public class ZeSenseClient extends JFrame {
 			System.out.println("Receiving response...");
 			Response response = null;
 			try {
-				response = request.receiveResponse();
+				if (selector == 1) {
+					response = accelRequest.receiveResponse();
+					selector = 2;
+				}
+				else if (selector == 2) {
+					response = proxRequest.receiveResponse();
+					selector = 1;
+				}
 			} catch (InterruptedException e) {
 				System.err.println("Failed to receive response: " + e.getMessage());
 				System.exit(Registry.ERR_RESPONSE_FAILED);
@@ -253,6 +333,7 @@ public class ZeSenseClient extends JFrame {
 				ZeStream recStream = findStream(streams, recToken, recResource);
 				boolean streamFound = false;
 				if (recStream != null) streamFound = true;
+				System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
 				
 				// check if it can be part of any stream
 				ArrayList<Option> observeOptList = 
@@ -283,13 +364,15 @@ public class ZeSenseClient extends JFrame {
 		
 							if (sensorType == Registry.SENSOR_TYPE_ACCELEROMETER) {
 								
+								System.out.println("Got accelerometer data");
+								
 								ZeAccelElement event = new ZeAccelElement();
 								event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
 								event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
 								event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
 								event.timestamp = timestamp;
 								event.sequenceNumber = sequenceNumber;
-								event.meaning = Registry.PLAYOUT_VALID;
+								//event.meaning = Registry.PLAYOUT_VALID;
 								
 								recStream.registerArrival(event);
 								
@@ -316,45 +399,47 @@ public class ZeSenseClient extends JFrame {
 								else
 									System.out.println("Not sending to playout, timing still unknown.");
 								
-								if (recStream.packetsReceived == 40) {
-									masterPlayoutManager.mpo+=500000000L;
-								}
+								//if (recStream.packetsReceived == 40) {
+								//	masterPlayoutManager.mpo+=500000000L;
+								//}
 							}
 							
 							if (sensorType == Registry.SENSOR_TYPE_PROXIMITY) {
 								
-								ZeProxElement event = new ZeProxElement();
-								event.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-								event.timestamp = timestamp;
-								event.sequenceNumber = sequenceNumber;
-								event.meaning = Registry.PLAYOUT_VALID;
+								System.out.println("Got proximity data");
 								
-								recStream.registerArrival(event);
+								ZeProxElement pevent = new ZeProxElement();
+								pevent.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+								pevent.timestamp = timestamp;
+								pevent.sequenceNumber = sequenceNumber;
+								//pevent.meaning = Registry.PLAYOUT_VALID;
+								
+								recStream.registerArrival(pevent);
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
 										" length:"+length+
 										" ts:"+timestamp+
 										" sn"+sequenceNumber+
-										" dist:"+event.distance);
+										" dist:"+pevent.distance);
 								
 								/* Cannot send to playout if I haven't got at least
 								 * an Sender Report with timing mapping. Although
 								 * conceptually this evaluation should be moved
 								 * inside the playout manager.. */
 								if (recStream.timingReady) {
-									recStream.toWallclock(event);
+									recStream.toWallclock(pevent);
 									/* Yes the playouts should belong to a stream... */
-									accelPlayoutManager.add(event);
-									meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
-											accelPlayoutManager.size());
+									proxPlayoutManager.add(pevent);
+									meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
+											proxPlayoutManager.size());
 								}
 								else
 									System.out.println("Not sending to playout, timing still unknown.");
 								
-								if (recStream.packetsReceived == 40) {
-									masterPlayoutManager.mpo+=500000000L;
-								}
+								//if (recStream.packetsReceived == 40) {
+								//	masterPlayoutManager.mpo+=500000000L;
+								//}
 							}
 							
 							

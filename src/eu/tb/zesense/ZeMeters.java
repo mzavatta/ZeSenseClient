@@ -41,6 +41,11 @@ public class ZeMeters extends ApplicationFrame {
     XYSeriesCollection accelBufferDataset;
     XYSeries accelBufferSeries;
     XYSeries accelUnderflowSeries;
+    
+    
+    public DefaultValueDataset proxDataset;
+    XYSeriesCollection proxBufferDataset;
+    XYSeries proxBufferSeries;
    
     /**
      * Creates a new demo.
@@ -62,21 +67,34 @@ public class ZeMeters extends ApplicationFrame {
      */
     public JPanel createDemoPanel() {
     	accelBufferSeries = new XYSeries("Accel Buffer");
+    	proxBufferSeries = new XYSeries("Prox Buffer");
     	accelUnderflowSeries = new XYSeries("Accel Underflow");
-    	//accelBufferSeries.add(1.0, 1.0);
-    	//accelBufferSeries.add(2.0, 4.0);
     	XYSeriesCollection accelBufferDataset = new XYSeriesCollection();
+    	XYSeriesCollection proxBufferDataset = new XYSeriesCollection();
     	accelBufferDataset.addSeries(accelBufferSeries);
     	accelBufferDataset.addSeries(accelUnderflowSeries);
+    	proxBufferDataset.addSeries(proxBufferSeries);
         accelDataset = new DefaultValueDataset(0.0);
         locationDataset = new DefaultValueDataset(0.0);
+        proxDataset = new DefaultValueDataset(0.0);
         JFreeChart accelChart = createChart(accelDataset, "Accelerometer");
         JFreeChart locationChart = createChart(locationDataset, "Location");
+        JFreeChart proxChart = createChart(proxDataset, "Proximity");
         JFreeChart accelBufferChart = ChartFactory.createXYLineChart(
         		"Accel Buffer", // chart title
         		"X", // x axis label
         		"Y", // y axis label
         		accelBufferDataset, // data
+        		PlotOrientation.VERTICAL,
+        		false, // include legend
+        		false, // tooltips
+        		false // urls
+        		);
+        JFreeChart proxBufferChart = ChartFactory.createXYLineChart(
+        		"Prox Buffer", // chart title
+        		"X", // x axis label
+        		"Y", // y axis label
+        		proxBufferDataset, // data
         		PlotOrientation.VERTICAL,
         		false, // include legend
         		false, // tooltips
@@ -97,6 +115,8 @@ public class ZeMeters extends ApplicationFrame {
         panel.add(new ChartPanel(accelChart));
         panel.add(new ChartPanel(locationChart));
         panel.add(new ChartPanel(accelBufferChart));
+        panel.add(new ChartPanel(proxChart));
+        panel.add(new ChartPanel(proxBufferChart));
         //panel.add(BorderLayout.SOUTH, slider);
         return panel;
     }

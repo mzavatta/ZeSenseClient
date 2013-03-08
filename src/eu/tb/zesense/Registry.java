@@ -58,9 +58,16 @@ public class Registry {
 	public static final int ACCEL_PLAYOUT_PERIOD = 100; //msec
 	public static final int ACCEL_PLAYOUT_HALF_PERIOD = 50; //msec
 	
+	public static final int PROX_STREAM_FREQ = 5;
+	
+	public static final int PROX_PLAYOUT_FREQ = 10; //HZ
+	public static final int PROX_PLAYOUT_PERIOD = 100; //msec
+	public static final int PROX_PLAYOUT_HALF_PERIOD = 50; //msec
+	
 	
 	public static final int PLAYOUT_HOLD = 1;
 	public static final int PLAYOUT_VALID = 2;
 	public static final int PLAYOUT_INVALID = 3;
+	public static final int PLAYOUT_OVERFLOW = 4;
 
 }
