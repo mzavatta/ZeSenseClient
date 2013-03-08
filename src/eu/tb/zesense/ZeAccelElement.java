@@ -6,8 +6,5 @@ public class ZeAccelElement extends ZeSensorElement {
 	float y;
 	float z;
 	
-	float getZ() {
-		return z;
-	}
-	
+
 }

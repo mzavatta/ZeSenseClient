@@ -52,17 +52,19 @@ public class Registry {
 	 * query string or something similar.
 	 */
 	public static final int ACCEL_STREAM_FREQ = 5;
-	
-	
 	public static final int ACCEL_PLAYOUT_FREQ = 10; //HZ
 	public static final int ACCEL_PLAYOUT_PERIOD = 100; //msec
 	public static final int ACCEL_PLAYOUT_HALF_PERIOD = 50; //msec
 	
 	public static final int PROX_STREAM_FREQ = 5;
-	
 	public static final int PROX_PLAYOUT_FREQ = 10; //HZ
 	public static final int PROX_PLAYOUT_PERIOD = 100; //msec
 	public static final int PROX_PLAYOUT_HALF_PERIOD = 50; //msec
+	
+	public static final int LIGHT_STREAM_FREQ = 5;
+	public static final int LIGHT_PLAYOUT_FREQ = 10; //HZ
+	public static final int LIGHT_PLAYOUT_PERIOD = 100; //msec
+	public static final int LIGHT_PLAYOUT_HALF_PERIOD = 50; //msec
 	
 	
 	public static final int PLAYOUT_HOLD = 1;

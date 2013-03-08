@@ -105,9 +105,13 @@ public class ZeSenseClient extends JFrame {
 	ZePlayoutManager<ZeProxElement> proxPlayoutManager;
 	ZeProxDisplayDevice proxDev;
 	
+	ZePlayoutManager<ZeLightElement> lightPlayoutManager;
+	ZeLightDisplayDevice lightDev;
+	
 	public static final String HOST = "coap://192.168.43.1:5683";
 	public static final String ACCEL_RESOURCE_PATH = "/accel";
 	public static final String PROX_RESOURCE_PATH = "/proximity";
+	public static final String LIGHT_RESOURCE_PATH = "/light";
 	
 	static boolean loop = false;
 
@@ -119,6 +123,8 @@ public class ZeSenseClient extends JFrame {
 	}
 	
 	void zeSenseClient () {
+		
+		System.out.println("This thread:"+Thread.currentThread().getId());
 	
 		JPanel panel = new JPanel();
 		getContentPane().add(panel);
@@ -162,6 +168,17 @@ public class ZeSenseClient extends JFrame {
 		proxDev.meter = meters;
 		proxDev.start();
 		
+		lightPlayoutManager = new ZePlayoutManager<ZeLightElement>();
+		lightPlayoutManager.master = masterPlayoutManager;
+		lightPlayoutManager.playoutFreq = Registry.LIGHT_PLAYOUT_FREQ;
+		lightPlayoutManager.playoutPer = Registry.LIGHT_PLAYOUT_PERIOD * 1000000;
+		lightPlayoutManager.playoutHalfPer = Registry.LIGHT_PLAYOUT_HALF_PERIOD * 1000000;
+		
+		lightDev = new ZeLightDisplayDevice();
+		lightDev.playoutManager = lightPlayoutManager;
+		lightDev.meter = meters;
+		lightDev.start();
+		
 		streams = new ArrayList<ZeStream>();
 		
 		
@@ -191,6 +208,134 @@ public class ZeSenseClient extends JFrame {
 			System.exit(Registry.ERR_MISSING_URI);
 		}
 		*/
+		/*----------------------------------------------------------------------*/
+		
+		method = "OBSERVE";
+		try {
+			uri = new URI(HOST+LIGHT_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		// create request according to specified method
+		Request lightRequest = new GETRequest() {
+			@Override
+			protected void handleResponse(Response response) {
+				System.out.println(" !!!!!!!!!!light TID:"+Thread.currentThread().getId());
+			}
+		};
+		if (lightRequest == null) {
+			System.err.println("Unknown method: " + method);
+			System.exit(Registry.ERR_UNKNOWN_METHOD);
+		}
+		// set request URI
+		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
+			// add discovery resource path to URI
+			try {
+				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
+				
+			} catch (URISyntaxException e) {
+				System.err.println("Failed to parse URI: " + e.getMessage());
+				System.exit(Registry.ERR_BAD_URI);
+			}
+		}
+		// if we want to observe, set the option
+		if (method.equals("OBSERVE")) {
+			lightRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
+			loop = true;
+		}
+		// cook the request
+		lightRequest.setURI(uri);
+		lightRequest.setPayload(payload);
+		byte[] lightToken = TokenManager.getInstance().acquireToken();
+		lightRequest.setToken( lightToken );
+		lightRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		// register a new stream associated with this token
+		streams.add(new ZeStream(lightToken, LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ));
+		// enable response queue in order to use blocking I/O
+		lightRequest.enableResponseQueue(true);		
+		lightRequest.prettyPrint();
+		// execute request
+		try {
+			lightRequest.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}
+		
+		/*----------------------------------------------------------------------*/
+		
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+		
+		/*----------------------------------------------------------------------*/
+		
+		method = "OBSERVE";
+		try {
+			uri = new URI(HOST+PROX_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		// create request according to specified method
+		Request proxRequest = new GETRequest() {
+			@Override
+			protected void handleResponse(Response response) {
+				System.out.println(" !!!!!!!!!!prox TID:"+Thread.currentThread().getId());
+			}
+		};
+		if (proxRequest == null) {
+			System.err.println("Unknown method: " + method);
+			System.exit(Registry.ERR_UNKNOWN_METHOD);
+		}
+		// set request URI
+		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
+			// add discovery resource path to URI
+			try {
+				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
+				
+			} catch (URISyntaxException e) {
+				System.err.println("Failed to parse URI: " + e.getMessage());
+				System.exit(Registry.ERR_BAD_URI);
+			}
+		}
+		// if we want to observe, set the option
+		if (method.equals("OBSERVE")) {
+			proxRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
+			loop = true;
+		}
+		// cook the request
+		proxRequest.setURI(uri);
+		proxRequest.setPayload(payload);
+		byte[] proxToken = TokenManager.getInstance().acquireToken();
+		proxRequest.setToken( proxToken );
+		proxRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		// register a new stream associated with this token
+		streams.add(new ZeStream(proxToken, PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
+		// enable response queue in order to use blocking I/O
+		proxRequest.enableResponseQueue(true);		
+		proxRequest.prettyPrint();
+		// execute request
+		try {
+			proxRequest.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}
+		
+		/*----------------------------------------------------------------------*/
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
 		/*---------------------------------------------------------------------*/
 		method = "OBSERVE";
 		try {
@@ -199,7 +344,12 @@ public class ZeSenseClient extends JFrame {
 			e1.printStackTrace();
 		}		
 		// create request according to specified method
-		Request accelRequest = newRequest(method);
+		Request accelRequest = new GETRequest() {
+			@Override
+			protected void handleResponse(Response response) {
+				System.out.println(" !!!!!!!!!!accel TID:"+Thread.currentThread().getId());
+			}
+		};
 		if (accelRequest == null) {
 			System.err.println("Unknown method: " + method);
 			System.exit(Registry.ERR_UNKNOWN_METHOD);
@@ -242,294 +392,10 @@ public class ZeSenseClient extends JFrame {
 			System.exit(Registry.ERR_REQUEST_FAILED);
 		}
 		/*----------------------------------------------------------------------*/
-		
-		try {
-			Thread.sleep(500);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
-		
-		/*----------------------------------------------------------------------*/
-		method = "OBSERVE";
-		try {
-			uri = new URI(HOST+PROX_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}
-		// create request according to specified method
-		Request proxRequest = newRequest(method);
-		if (proxRequest == null) {
-			System.err.println("Unknown method: " + method);
-			System.exit(Registry.ERR_UNKNOWN_METHOD);
-		}
-		// set request URI
-		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
-			// add discovery resource path to URI
-			try {
-				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
-				
-			} catch (URISyntaxException e) {
-				System.err.println("Failed to parse URI: " + e.getMessage());
-				System.exit(Registry.ERR_BAD_URI);
-			}
-		}
-		// if we want to observe, set the option
-		if (method.equals("OBSERVE")) {
-			proxRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
-			loop = true;
-		}
-		// cook the request
-		proxRequest.setURI(uri);
-		proxRequest.setPayload(payload);
-		byte[] proxToken = TokenManager.getInstance().acquireToken();
-		proxRequest.setToken( proxToken );
-		proxRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		// register a new stream associated with this token
-		streams.add(new ZeStream(proxToken, PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
-		// enable response queue in order to use blocking I/O
-		proxRequest.enableResponseQueue(true);		
-		proxRequest.prettyPrint();
-		// execute request
-		try {
-			proxRequest.execute();
-		} catch (UnknownHostException e) {
-			System.err.println("Unknown host: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		} catch (IOException e) {
-			System.err.println("Failed to execute request: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		}
-		/*----------------------------------------------------------------------*/
-		
+
 		int selector = 1;
 		
-		// loop for receiving multiple responses
-		do {
-	
-			// receive response
-			System.out.println("Receiving response...");
-			Response response = null;
-			try {
-				if (selector == 1) {
-					response = accelRequest.receiveResponse();
-					selector = 2;
-				}
-				else if (selector == 2) {
-					response = proxRequest.receiveResponse();
-					selector = 1;
-				}
-			} catch (InterruptedException e) {
-				System.err.println("Failed to receive response: " + e.getMessage());
-				System.exit(Registry.ERR_RESPONSE_FAILED);
-			}
-	
-			// process response
-			if (response != null) {
-				
-				// get token and corresponding resource to identify the stream
-				byte[] recToken = response.getToken();
-				String recResource = response.getRequest().getUriPath();
-				System.out.println("Token:"+new String(recToken)+" resource:"+recResource);
-				ZeStream recStream = findStream(streams, recToken, recResource);
-				boolean streamFound = false;
-				if (recStream != null) streamFound = true;
-				System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
-				
-				// check if it can be part of any stream
-				ArrayList<Option> observeOptList = 
-						(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
-				boolean isNotification = false;
-				if ( !observeOptList.isEmpty() ) isNotification = true;
-				
-				byte[] pay = response.getPayload();
-				DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
-				boolean validLength = false;
-				if (pay.length >= Registry.PAYLOAD_HDR_LENGTH)
-					validLength = true;
-				
-				if (streamFound && isNotification && validLength) {
-
-					try {
-						
-						byte packetType = dataStream.readByte();
-						byte sensorType = dataStream.readByte();
-						short length = dataStream.readShort();
-						
-						Option observeOpt = observeOptList.get(0);
-						int sequenceNumber = observeOpt.getIntValue();
-						
-						if (packetType == Registry.DATAPOINT) {
-							
-							int timestamp = dataStream.readInt();
-		
-							if (sensorType == Registry.SENSOR_TYPE_ACCELEROMETER) {
-								
-								System.out.println("Got accelerometer data");
-								
-								ZeAccelElement event = new ZeAccelElement();
-								event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-								event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
-								event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
-								event.timestamp = timestamp;
-								event.sequenceNumber = sequenceNumber;
-								//event.meaning = Registry.PLAYOUT_VALID;
-								
-								recStream.registerArrival(event);
-								
-								System.out.println("packet:"+packetType+
-										" sensor:"+sensorType+
-										" length:"+length+
-										" ts:"+timestamp+
-										" sn"+sequenceNumber+
-										" x:"+event.x+
-										" y:"+event.y+
-										" z:"+event.z);
-								
-								/* Cannot send to playout if I haven't got at least
-								 * an Sender Report with timing mapping. Although
-								 * conceptually this evaluation should be moved
-								 * inside the playout manager.. */
-								if (recStream.timingReady) {
-									recStream.toWallclock(event);
-									/* Yes the playouts should belong to a stream... */
-									accelPlayoutManager.add(event);
-									meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
-											accelPlayoutManager.size());
-								}
-								else
-									System.out.println("Not sending to playout, timing still unknown.");
-								
-								//if (recStream.packetsReceived == 40) {
-								//	masterPlayoutManager.mpo+=500000000L;
-								//}
-							}
-							
-							if (sensorType == Registry.SENSOR_TYPE_PROXIMITY) {
-								
-								System.out.println("Got proximity data");
-								
-								ZeProxElement pevent = new ZeProxElement();
-								pevent.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-								pevent.timestamp = timestamp;
-								pevent.sequenceNumber = sequenceNumber;
-								//pevent.meaning = Registry.PLAYOUT_VALID;
-								
-								recStream.registerArrival(pevent);
-								
-								System.out.println("packet:"+packetType+
-										" sensor:"+sensorType+
-										" length:"+length+
-										" ts:"+timestamp+
-										" sn"+sequenceNumber+
-										" dist:"+pevent.distance);
-								
-								/* Cannot send to playout if I haven't got at least
-								 * an Sender Report with timing mapping. Although
-								 * conceptually this evaluation should be moved
-								 * inside the playout manager.. */
-								if (recStream.timingReady) {
-									recStream.toWallclock(pevent);
-									/* Yes the playouts should belong to a stream... */
-									proxPlayoutManager.add(pevent);
-									meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
-											proxPlayoutManager.size());
-								}
-								else
-									System.out.println("Not sending to playout, timing still unknown.");
-								
-								//if (recStream.packetsReceived == 40) {
-								//	masterPlayoutManager.mpo+=500000000L;
-								//}
-							}
-							
-							
-		
-						}
-						else if (packetType == Registry.SENDREPORT) {
-							
-							long ntpts = dataStream.readLong();							
-							int rtpts = dataStream.readInt();
-							int packetCount = dataStream.readInt();
-							int octectCount = dataStream.readInt();
-							byte[] cname = new byte[length];
-							dataStream.readFully(cname);
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" sn"+sequenceNumber+
-									" ntpts:"+ntpts+
-									" rtpts:"+rtpts+
-									" packetCount:"+packetCount+
-									" octectCount:"+octectCount+
-									" cname:"+new String(cname));
-							
-							if (firstSR) {
-								firstSR = false;
-								long blindDelay = 1000000000L;
-								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
-							
-							recStream.updateTiming(rtpts, ntpts);
-							recStream.octectCount = octectCount;
-							recStream.packetCount = packetCount;
-						}
-						else 
-							System.out.println("Unknown payload format, drop.");
-					
-					} catch (Exception e1) {
-						e1.printStackTrace();
-					}
-				}
-				else if ( !streamFound && isNotification && validLength) {
-					System.out.println("Stream record not found but packet seems well formed.");
-				}
-				else {
-					System.out.println("Some problems in the response..");
-				}
-
-				/*
-				//DataInputStream stream = new DataInputStream(new ByteArrayInputStream(pay));
-				//byte[] z = new byte[4];
-				//stream.skipBytes(39);
-				//stream.read(z, 36, 3);
-				*/
-				System.out.println("Time elapsed (ms): " + response.getRTT());
-
-				//response.prettyPrint();
-				
-				// check of response contains resources
-				if (response.getContentType()==MediaTypeRegistry.APPLICATION_LINK_FORMAT) {
-
-					String linkFormat = response.getPayloadString();
-
-					// create resource three from link format
-					Resource root = RemoteResource.newRoot(linkFormat);
-					if (root != null) {
-
-						// output discovered resources
-						System.out.println("\nDiscovered resources:");
-						root.prettyPrint();
-
-					} else {
-						System.err.println("Failed to parse link format");
-						System.exit(Registry.ERR_BAD_LINK_FORMAT);
-					}
-				} else {
-
-					// check if link format was expected by client
-					if (method.equals("DISCOVER")) {
-						System.out.println("Server error: Link format not specified");
-					}
-				}
-
-			} else {
-
-				// no response received	
-				System.err.println("Request timed out");
-				break;
-			}
-
-		} while (loop);
+		/*------> HERE <---------*/
 		
 
 		// Print out some stats

@@ -46,6 +46,10 @@ public class ZeMeters extends ApplicationFrame {
     public DefaultValueDataset proxDataset;
     XYSeriesCollection proxBufferDataset;
     XYSeries proxBufferSeries;
+    
+    public DefaultValueDataset lightDataset;
+    XYSeriesCollection lightBufferDataset;
+    XYSeries lightBufferSeries;
    
     /**
      * Creates a new demo.
@@ -68,18 +72,23 @@ public class ZeMeters extends ApplicationFrame {
     public JPanel createDemoPanel() {
     	accelBufferSeries = new XYSeries("Accel Buffer");
     	proxBufferSeries = new XYSeries("Prox Buffer");
+    	lightBufferSeries = new XYSeries("Light Buffer");
     	accelUnderflowSeries = new XYSeries("Accel Underflow");
     	XYSeriesCollection accelBufferDataset = new XYSeriesCollection();
     	XYSeriesCollection proxBufferDataset = new XYSeriesCollection();
+    	XYSeriesCollection lightBufferDataset = new XYSeriesCollection();
     	accelBufferDataset.addSeries(accelBufferSeries);
     	accelBufferDataset.addSeries(accelUnderflowSeries);
     	proxBufferDataset.addSeries(proxBufferSeries);
+    	lightBufferDataset.addSeries(lightBufferSeries);
         accelDataset = new DefaultValueDataset(0.0);
         locationDataset = new DefaultValueDataset(0.0);
         proxDataset = new DefaultValueDataset(0.0);
-        JFreeChart accelChart = createChart(accelDataset, "Accelerometer");
+        lightDataset = new DefaultValueDataset(0.0);
+        JFreeChart accelChart = createAccelChart(accelDataset, "Accelerometer");
         JFreeChart locationChart = createChart(locationDataset, "Location");
-        JFreeChart proxChart = createChart(proxDataset, "Proximity");
+        JFreeChart proxChart = createProxChart(proxDataset, "Proximity");
+        JFreeChart lightChart = createLightChart(lightDataset, "Light");
         JFreeChart accelBufferChart = ChartFactory.createXYLineChart(
         		"Accel Buffer", // chart title
         		"X", // x axis label
@@ -95,6 +104,16 @@ public class ZeMeters extends ApplicationFrame {
         		"X", // x axis label
         		"Y", // y axis label
         		proxBufferDataset, // data
+        		PlotOrientation.VERTICAL,
+        		false, // include legend
+        		false, // tooltips
+        		false // urls
+        		);
+        JFreeChart lightBufferChart = ChartFactory.createXYLineChart(
+        		"Light Buffer", // chart title
+        		"X", // x axis label
+        		"Y", // y axis label
+        		lightBufferDataset, // data
         		PlotOrientation.VERTICAL,
         		false, // include legend
         		false, // tooltips
@@ -117,6 +136,8 @@ public class ZeMeters extends ApplicationFrame {
         panel.add(new ChartPanel(accelBufferChart));
         panel.add(new ChartPanel(proxChart));
         panel.add(new ChartPanel(proxBufferChart));
+        panel.add(new ChartPanel(lightChart));
+        panel.add(new ChartPanel(lightBufferChart));
         //panel.add(BorderLayout.SOUTH, slider);
         return panel;
     }
@@ -134,6 +155,39 @@ public class ZeMeters extends ApplicationFrame {
         plot.setRange(new Range(-20, 20));
         plot.addInterval(new MeterInterval("High", new Range(15, 20)));
         plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
+        plot.setDialOutlinePaint(Color.white);
+        JFreeChart chart = new JFreeChart(name,
+                JFreeChart.DEFAULT_TITLE_FONT, plot, false);
+        return chart;
+    }
+    
+    private static JFreeChart createAccelChart(ValueDataset dataset, String name) {
+        MeterPlot plot = new MeterPlot(dataset);
+        plot.setRange(new Range(-20, 20));
+        plot.addInterval(new MeterInterval("High", new Range(15, 20)));
+        plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
+        plot.setDialOutlinePaint(Color.white);
+        JFreeChart chart = new JFreeChart(name,
+                JFreeChart.DEFAULT_TITLE_FONT, plot, false);
+        return chart;
+    }
+    
+    private static JFreeChart createProxChart(ValueDataset dataset, String name) {
+        MeterPlot plot = new MeterPlot(dataset);
+        plot.setRange(new Range(0, 8));
+        plot.addInterval(new MeterInterval("High", new Range(7, 8)));
+        plot.addInterval(new MeterInterval("Low", new Range(0, 1)));
+        plot.setDialOutlinePaint(Color.white);
+        JFreeChart chart = new JFreeChart(name,
+                JFreeChart.DEFAULT_TITLE_FONT, plot, false);
+        return chart;
+    }
+    
+    private static JFreeChart createLightChart(ValueDataset dataset, String name) {
+        MeterPlot plot = new MeterPlot(dataset);
+        plot.setRange(new Range(0, 600));
+        plot.addInterval(new MeterInterval("High", new Range(500, 600)));
+        plot.addInterval(new MeterInterval("Low", new Range(0, 100)));
         plot.setDialOutlinePaint(Color.white);
         JFreeChart chart = new JFreeChart(name,
                 JFreeChart.DEFAULT_TITLE_FONT, plot, false);
