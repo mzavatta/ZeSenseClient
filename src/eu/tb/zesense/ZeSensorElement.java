@@ -2,6 +2,9 @@ package eu.tb.zesense;
 
 public class ZeSensorElement implements Comparable<ZeSensorElement>  {
 	
+	/* Sensor identifier. */
+	int sensorId;
+	
 	/* Sequence number.
 	 * Note that some samples may have the same sequence number
 	 * e.g. multiple samples per packet */

@@ -43,12 +43,12 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		while ( !isEmpty() ) {
 			System.out.println(Long.toString(master.mpo+first().wallclock)+" interval:"+Long.toString(now-playoutHalfPer)+":"+Long.toString(now+playoutHalfPer));
 			if ((first().wallclock+master.mpo) < (now-playoutHalfPer)) {
-				pollFirst();
-				System.out.println("Late!");
+				E skipped = pollFirst();
+				System.out.println("Late skipped "+skipped.sensorId);
 			}
 			else if ( (first().wallclock+master.mpo) >= (now-playoutHalfPer) && 
 					(first().wallclock+master.mpo) <= (now+playoutHalfPer) ) {
-				System.out.println("Giving data");
+				//System.out.println("Giving data");
 				resetHoldCount();
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				current = pollFirst();
@@ -61,14 +61,14 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 					if (now < current.expiry+master.mpo) { //current not expired
 						// give hold
 						holdcount++;
-						System.out.println("Giving hold and buffer still full");
+						//System.out.println("Giving hold and buffer still full");
 						ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 						elem.element = null;
 						elem.meaning = Registry.PLAYOUT_HOLD;
 						return elem;
 					}
 				}
-				System.out.println("Giving invalidate");
+				//System.out.println("Giving invalidate");
 				resetHoldCount();
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = null;
@@ -80,14 +80,14 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 			if (now < current.expiry+master.mpo) { //current not expired
 				// give hold
 				holdcount++;
-				System.out.println("Found empty but holding");
+				//System.out.println("Found empty but holding");
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = null;
 				elem.meaning = Registry.PLAYOUT_HOLD;
 				return elem;
 			}
 			else {
-				System.out.println("Found empty and current expired: underflow");
+				//System.out.println("Found empty and current expired: underflow");
 				underflowCount++;
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = null;
@@ -95,7 +95,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 				return elem;
 			}
 		}
-		System.out.println("Found empty but playout not yet started");
+		//System.out.println("Found empty but playout not yet started");
 		ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 		elem.element = null;
 		elem.meaning = Registry.PLAYOUT_INVALID;
@@ -104,7 +104,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	
 	void resetHoldCount() {
 		holdcount = 0;
-		System.out.println("Holdcount reset at "+holdcount);
+		//System.out.println("Holdcount reset at "+holdcount);
 	}
 		
 	

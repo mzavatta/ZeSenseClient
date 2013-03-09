@@ -108,10 +108,11 @@ public class ZeSenseClient extends JFrame {
 	ZePlayoutManager<ZeLightElement> lightPlayoutManager;
 	ZeLightDisplayDevice lightDev;
 	
-	public static final String HOST = "coap://192.168.43.1:5683";
-	public static final String ACCEL_RESOURCE_PATH = "/accel";
-	public static final String PROX_RESOURCE_PATH = "/proximity";
-	public static final String LIGHT_RESOURCE_PATH = "/light";
+	ZePlayoutManager<ZeOrientElement> orientPlayoutManager;
+	ZeOrientDisplayDevice orientDev;
+	
+	ZePlayoutManager<ZeGyroElement> gyroPlayoutManager;
+	ZeGyroDisplayDevice gyroDev;
 	
 	static boolean loop = false;
 
@@ -121,6 +122,638 @@ public class ZeSenseClient extends JFrame {
 	    //setLocationRelativeTo(null);
 	    setDefaultCloseOperation(EXIT_ON_CLOSE);
 	}
+	
+	boolean firstSR = true;
+	
+	public class ZeAccelRecThread extends Thread {
+		
+		@Override
+		public void run() {
+			
+			Thread.currentThread().setName("ZeAccelRecThread");
+			
+			System.out.println("Hello from thread "+Thread.currentThread().getName());
+			
+			accelPlayoutManager = new ZePlayoutManager<ZeAccelElement>();
+			accelPlayoutManager.master = masterPlayoutManager;
+			accelPlayoutManager.playoutFreq = Registry.ACCEL_PLAYOUT_FREQ;
+			accelPlayoutManager.playoutPer = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
+			accelPlayoutManager.playoutHalfPer = Registry.ACCEL_PLAYOUT_HALF_PERIOD * 1000000;
+			
+			accelDev = new ZeAccelDisplayDevice();
+			accelDev.playoutManager = accelPlayoutManager;
+			accelDev.meter = meters;
+			accelDev.start();
+			
+			Request request = prepareObserveRequest(Registry.ACCEL_RESOURCE_PATH);
+			streams.add(new ZeStream(request.getToken(), Registry.ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
+			executeRequest(request);
+			
+			while(true) {
+				
+				Response response = null;
+				
+				try {
+					
+					response = request.receiveResponse();
+					
+					// get token and corresponding resource to identify the stream
+					ZeStream recStream = findStream(streams, response.getToken(), response.getRequest().getUriPath());
+					if (recStream != null)
+						System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
+					
+					// check if it can be part of any stream
+					ArrayList<Option> observeOptList = 
+							(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
+					
+					// get payload
+					byte[] pay = response.getPayload();
+					DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
+					
+					if (recStream!=null && !observeOptList.isEmpty() && pay.length >= Registry.PAYLOAD_HDR_LENGTH) {
+							
+						byte packetType = dataStream.readByte();
+						byte sensorType = dataStream.readByte();
+						short length = dataStream.readShort();
+						
+						Option observeOpt = observeOptList.get(0);
+						int sequenceNumber = observeOpt.getIntValue();
+						
+						if (packetType == Registry.DATAPOINT) {
+							
+							int timestamp = dataStream.readInt();
+							
+							ZeAccelElement event = new ZeAccelElement();
+							event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+							event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
+							event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
+							event.timestamp = timestamp;
+							event.sequenceNumber = sequenceNumber;
+							event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
+							//event.meaning = Registry.PLAYOUT_VALID;
+							
+							recStream.registerArrival(event);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" ts:"+timestamp+
+									" sn"+sequenceNumber+
+									" x:"+event.x+
+									" y:"+event.y+
+									" z:"+event.z);
+							
+							if (recStream.timingReady) {
+								recStream.toWallclock(event);
+								accelPlayoutManager.add(event);
+								meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
+										accelPlayoutManager.size());
+							}
+							else System.out.println("Not sending to playout, timing still unknown.");
+						}
+						else if (packetType == Registry.SENDREPORT) {
+							
+							long ntpts = dataStream.readLong();							
+							int rtpts = dataStream.readInt();
+							int packetCount = dataStream.readInt();
+							int octectCount = dataStream.readInt();
+							byte[] cname = new byte[length];
+							dataStream.readFully(cname);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" sn"+sequenceNumber+
+									" ntpts:"+ntpts+
+									" rtpts:"+rtpts+
+									" packetCount:"+packetCount+
+									" octectCount:"+octectCount+
+									" cname:"+new String(cname));
+							
+							if (firstSR) {
+								firstSR = false;
+								long blindDelay = 1000000000L;
+								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
+							}
+							
+							//if (recStream.timingReady == false) {
+								recStream.updateTiming(rtpts, ntpts);
+								recStream.octectCount = octectCount;
+								recStream.packetCount = packetCount;
+							//}
+						} //sender report
+						else System.out.println("Unknown payload format, drop.");
+					} //valid response
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}// while true loop
+		}// run method of the thread
+	}//thread class
+	
+	public class ZeProxRecThread extends Thread {
+		
+		@Override
+		public void run() {
+			
+			Thread.currentThread().setName("ZeProxRecThread");
+			
+			System.out.println("Hello from thread "+Thread.currentThread().getName());
+			
+			proxPlayoutManager = new ZePlayoutManager<ZeProxElement>();
+			proxPlayoutManager.master = masterPlayoutManager;
+			proxPlayoutManager.playoutFreq = Registry.PROX_PLAYOUT_FREQ;
+			proxPlayoutManager.playoutPer = Registry.PROX_PLAYOUT_PERIOD * 1000000;
+			proxPlayoutManager.playoutHalfPer = Registry.PROX_PLAYOUT_HALF_PERIOD * 1000000;
+			
+			proxDev = new ZeProxDisplayDevice();
+			proxDev.playoutManager = proxPlayoutManager;
+			proxDev.meter = meters;
+			proxDev.start();
+			
+			Request request = prepareObserveRequest(Registry.PROX_RESOURCE_PATH);
+			streams.add(new ZeStream(request.getToken(), Registry.PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
+			executeRequest(request);
+		
+			while(true) {
+				
+				Response response = null;
+				
+				try {
+					
+					response = request.receiveResponse();
+					
+					// get token and corresponding resource to identify the stream
+					ZeStream recStream = findStream(streams, response.getToken(), response.getRequest().getUriPath());
+					if (recStream != null)
+						System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
+					
+					// check if it can be part of any stream
+					ArrayList<Option> observeOptList = 
+							(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
+					
+					// get payload
+					byte[] pay = response.getPayload();
+					DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
+					
+					if (recStream!=null && !observeOptList.isEmpty() && pay.length >= Registry.PAYLOAD_HDR_LENGTH) {
+							
+						byte packetType = dataStream.readByte();
+						byte sensorType = dataStream.readByte();
+						short length = dataStream.readShort();
+						
+						Option observeOpt = observeOptList.get(0);
+						int sequenceNumber = observeOpt.getIntValue();
+						
+						if (packetType == Registry.DATAPOINT) {
+							
+							int timestamp = dataStream.readInt();
+							ZeProxElement pevent = new ZeProxElement();
+							pevent.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+							pevent.timestamp = timestamp;
+							pevent.sequenceNumber = sequenceNumber;
+							pevent.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
+							recStream.registerArrival(pevent);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" ts:"+timestamp+
+									" sn"+sequenceNumber+
+									" dist:"+pevent.distance);
+							
+							if (recStream.timingReady) {
+								recStream.toWallclock(pevent);
+								proxPlayoutManager.add(pevent);
+								meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
+										proxPlayoutManager.size());
+							}
+							else System.out.println("Not sending to playout, timing still unknown.");
+						}
+						else if (packetType == Registry.SENDREPORT) {
+							
+							long ntpts = dataStream.readLong();							
+							int rtpts = dataStream.readInt();
+							int packetCount = dataStream.readInt();
+							int octectCount = dataStream.readInt();
+							byte[] cname = new byte[length];
+							dataStream.readFully(cname);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" sn"+sequenceNumber+
+									" ntpts:"+ntpts+
+									" rtpts:"+rtpts+
+									" packetCount:"+packetCount+
+									" octectCount:"+octectCount+
+									" cname:"+new String(cname));
+							
+							if (firstSR) {
+								firstSR = false;
+								long blindDelay = 1000000000L;
+								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
+							}
+							
+							//if (recStream.timingReady == false) {
+								recStream.updateTiming(rtpts, ntpts);
+								recStream.octectCount = octectCount;
+								recStream.packetCount = packetCount;
+							//}
+						} //sender report
+						else System.out.println("Unknown payload format, drop.");
+					} //valid response
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}// while true loop
+		}// run method of the thread
+	}//thread class
+	
+	public class ZeLightRecThread extends Thread {
+		
+		@Override
+		public void run() {
+			
+			Thread.currentThread().setName("ZeLightRecThread");
+			
+			System.out.println("Hello from thread "+Thread.currentThread().getName());
+			
+			lightPlayoutManager = new ZePlayoutManager<ZeLightElement>();
+			lightPlayoutManager.master = masterPlayoutManager;
+			lightPlayoutManager.playoutFreq = Registry.LIGHT_PLAYOUT_FREQ;
+			lightPlayoutManager.playoutPer = Registry.LIGHT_PLAYOUT_PERIOD * 1000000;
+			lightPlayoutManager.playoutHalfPer = Registry.LIGHT_PLAYOUT_HALF_PERIOD * 1000000;
+			
+			lightDev = new ZeLightDisplayDevice();
+			lightDev.playoutManager = lightPlayoutManager;
+			lightDev.meter = meters;
+			lightDev.start();
+			
+			Request request = prepareObserveRequest(Registry.LIGHT_RESOURCE_PATH);
+			streams.add(new ZeStream(request.getToken(), Registry.LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ));
+			executeRequest(request);
+			
+			while(true) {
+				
+				Response response = null;
+				
+				try {
+					
+					response = request.receiveResponse();
+					
+					// get token and corresponding resource to identify the stream
+					ZeStream recStream = findStream(streams, response.getToken(), response.getRequest().getUriPath());
+					if (recStream != null)
+						System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
+					
+					// check if it can be part of any stream
+					ArrayList<Option> observeOptList = 
+							(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
+					
+					// get payload
+					byte[] pay = response.getPayload();
+					DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
+					
+					if (recStream!=null && !observeOptList.isEmpty() && pay.length >= Registry.PAYLOAD_HDR_LENGTH) {
+							
+						byte packetType = dataStream.readByte();
+						byte sensorType = dataStream.readByte();
+						short length = dataStream.readShort();
+						
+						Option observeOpt = observeOptList.get(0);
+						int sequenceNumber = observeOpt.getIntValue();
+						
+						if (packetType == Registry.DATAPOINT) {
+							
+							int timestamp = dataStream.readInt();
+							ZeLightElement pevent = new ZeLightElement();
+							pevent.light = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+							pevent.timestamp = timestamp;
+							pevent.sequenceNumber = sequenceNumber;
+							pevent.sensorId = Registry.SENSOR_TYPE_LIGHT;
+							
+							recStream.registerArrival(pevent);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" ts:"+timestamp+
+									" sn"+sequenceNumber+
+									" light:"+pevent.light);
+							
+							if (recStream.timingReady) {
+								recStream.toWallclock(pevent);
+								lightPlayoutManager.add(pevent);
+								meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
+										lightPlayoutManager.size());
+							}
+							else System.out.println("Not sending to playout, timing still unknown.");
+						}
+						else if (packetType == Registry.SENDREPORT) {
+							
+							long ntpts = dataStream.readLong();							
+							int rtpts = dataStream.readInt();
+							int packetCount = dataStream.readInt();
+							int octectCount = dataStream.readInt();
+							byte[] cname = new byte[length];
+							dataStream.readFully(cname);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" sn"+sequenceNumber+
+									" ntpts:"+ntpts+
+									" rtpts:"+rtpts+
+									" packetCount:"+packetCount+
+									" octectCount:"+octectCount+
+									" cname:"+new String(cname));
+							
+							if (firstSR) {
+								firstSR = false;
+								long blindDelay = 1000000000L;
+								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
+							}
+							
+							//if (recStream.timingReady == false) {
+								recStream.updateTiming(rtpts, ntpts);
+								recStream.octectCount = octectCount;
+								recStream.packetCount = packetCount;
+							//}
+						} //sender report
+						else System.out.println("Unknown payload format, drop.");
+					} //valid response
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}// while true loop
+		}//thread run()
+	}//thread class
+	
+	
+	public class ZeOrientRecThread extends Thread {
+		
+		@Override
+		public void run() {
+			
+			Thread.currentThread().setName("ZeOrientRecThread");
+			
+			System.out.println("Hello from thread "+Thread.currentThread().getName());
+			
+			orientPlayoutManager = new ZePlayoutManager<ZeOrientElement>();
+			orientPlayoutManager.master = masterPlayoutManager;
+			orientPlayoutManager.playoutFreq = Registry.ORIENT_PLAYOUT_FREQ;
+			orientPlayoutManager.playoutPer = Registry.ORIENT_PLAYOUT_PERIOD * 1000000;
+			orientPlayoutManager.playoutHalfPer = Registry.ORIENT_PLAYOUT_HALF_PERIOD * 1000000;
+			
+			orientDev = new ZeOrientDisplayDevice();
+			orientDev.playoutManager = orientPlayoutManager;
+			orientDev.meter = meters;
+			orientDev.start();
+			
+			Request request = prepareObserveRequest(Registry.ORIENT_RESOURCE_PATH);
+			streams.add(new ZeStream(request.getToken(), Registry.ORIENT_RESOURCE_PATH, Registry.ORIENT_STREAM_FREQ));
+			executeRequest(request);
+			
+			while(true) {
+				
+				Response response = null;
+				
+				try {
+					
+					response = request.receiveResponse();
+					
+					// get token and corresponding resource to identify the stream
+					ZeStream recStream = findStream(streams, response.getToken(), response.getRequest().getUriPath());
+					if (recStream != null)
+						System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
+					
+					// check if it can be part of any stream
+					ArrayList<Option> observeOptList = 
+							(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
+					
+					// get payload
+					byte[] pay = response.getPayload();
+					DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
+					
+					if (recStream!=null && !observeOptList.isEmpty() && pay.length >= Registry.PAYLOAD_HDR_LENGTH) {
+							
+						byte packetType = dataStream.readByte();
+						byte sensorType = dataStream.readByte();
+						short length = dataStream.readShort();
+						
+						Option observeOpt = observeOptList.get(0);
+						int sequenceNumber = observeOpt.getIntValue();
+						
+						if (packetType == Registry.DATAPOINT) {
+							
+							int timestamp = dataStream.readInt();
+							
+							ZeOrientElement event = new ZeOrientElement();
+							event.azimuth = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+							event.pitch = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
+							event.roll = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
+							event.timestamp = timestamp;
+							event.sequenceNumber = sequenceNumber;
+							event.sensorId = Registry.SENSOR_TYPE_ORIENTATION;
+							//event.meaning = Registry.PLAYOUT_VALID;
+							
+							recStream.registerArrival(event);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" ts:"+timestamp+
+									" sn"+sequenceNumber+
+									" azimuth:"+event.azimuth+
+									" pitch:"+event.pitch+
+									" roll:"+event.roll);
+							
+							if (recStream.timingReady) {
+								recStream.toWallclock(event);
+								orientPlayoutManager.add(event);
+								meters.orientBufferSeries.add(meters.orientBufferSeries.getItemCount()+1,
+										orientPlayoutManager.size());
+							}
+							else System.out.println("Not sending to playout, timing still unknown.");
+						}
+						else if (packetType == Registry.SENDREPORT) {
+							
+							long ntpts = dataStream.readLong();							
+							int rtpts = dataStream.readInt();
+							int packetCount = dataStream.readInt();
+							int octectCount = dataStream.readInt();
+							byte[] cname = new byte[length];
+							dataStream.readFully(cname);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" sn"+sequenceNumber+
+									" ntpts:"+ntpts+
+									" rtpts:"+rtpts+
+									" packetCount:"+packetCount+
+									" octectCount:"+octectCount+
+									" cname:"+new String(cname));
+							
+							if (firstSR) {
+								firstSR = false;
+								long blindDelay = 1000000000L;
+								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
+							}
+							
+							//if (recStream.timingReady == false) {
+								recStream.updateTiming(rtpts, ntpts);
+								recStream.octectCount = octectCount;
+								recStream.packetCount = packetCount;
+							//}
+						} //sender report
+						else System.out.println("Unknown payload format, drop.");
+					} //valid response
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}// while true loop
+		}//thread run()
+	}//thread class
+	
+	public class ZeGyroRecThread extends Thread {
+		
+		@Override
+		public void run() {
+			
+			Thread.currentThread().setName("ZeGyroRecThread");
+			
+			System.out.println("Hello from thread "+Thread.currentThread().getName());
+			
+			gyroPlayoutManager = new ZePlayoutManager<ZeGyroElement>();
+			gyroPlayoutManager.master = masterPlayoutManager;
+			gyroPlayoutManager.playoutFreq = Registry.GYRO_PLAYOUT_FREQ;
+			gyroPlayoutManager.playoutPer = Registry.GYRO_PLAYOUT_PERIOD * 1000000;
+			gyroPlayoutManager.playoutHalfPer = Registry.GYRO_PLAYOUT_HALF_PERIOD * 1000000;
+			
+			gyroDev = new ZeGyroDisplayDevice();
+			gyroDev.playoutManager = gyroPlayoutManager;
+			gyroDev.meter = meters;
+			gyroDev.start();
+			
+			Request request = prepareObserveRequest(Registry.GYRO_RESOURCE_PATH);
+			streams.add(new ZeStream(request.getToken(), Registry.GYRO_RESOURCE_PATH, Registry.GYRO_STREAM_FREQ));
+			executeRequest(request);
+			
+			while(true) {
+				
+				Response response = null;
+				
+				try {
+					
+					response = request.receiveResponse();
+					
+					// get token and corresponding resource to identify the stream
+					ZeStream recStream = findStream(streams, response.getToken(), response.getRequest().getUriPath());
+					if (recStream != null)
+						System.out.println("Stream found, token:"+new String(recStream.token)+" resource:"+recStream.resource);
+					
+					// check if it can be part of any stream
+					ArrayList<Option> observeOptList = 
+							(ArrayList<Option>) response.getOptions(OptionNumberRegistry.OBSERVE);
+					
+					// get payload
+					byte[] pay = response.getPayload();
+					DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(pay));
+					
+					if (recStream!=null && !observeOptList.isEmpty() && pay.length >= Registry.PAYLOAD_HDR_LENGTH) {
+							
+						byte packetType = dataStream.readByte();
+						byte sensorType = dataStream.readByte();
+						short length = dataStream.readShort();
+						
+						Option observeOpt = observeOptList.get(0);
+						int sequenceNumber = observeOpt.getIntValue();
+						
+						if (packetType == Registry.DATAPOINT) {
+							
+							int timestamp = dataStream.readInt();
+							
+							ZeGyroElement event = new ZeGyroElement();
+							event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
+							event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
+							event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
+							event.timestamp = timestamp;
+							event.sequenceNumber = sequenceNumber;
+							event.sensorId = Registry.SENSOR_TYPE_GYROSCOPE;
+							//event.meaning = Registry.PLAYOUT_VALID;
+							
+							recStream.registerArrival(event);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" ts:"+timestamp+
+									" sn"+sequenceNumber+
+									" x:"+event.x+
+									" y:"+event.y+
+									" z:"+event.z);
+							
+							if (recStream.timingReady) {
+								recStream.toWallclock(event);
+								gyroPlayoutManager.add(event);
+								meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
+										gyroPlayoutManager.size());
+							}
+							else System.out.println("Not sending to playout, timing still unknown.");
+						}
+						else if (packetType == Registry.SENDREPORT) {
+							
+							long ntpts = dataStream.readLong();							
+							int rtpts = dataStream.readInt();
+							int packetCount = dataStream.readInt();
+							int octectCount = dataStream.readInt();
+							byte[] cname = new byte[length];
+							dataStream.readFully(cname);
+							
+							System.out.println("packet:"+packetType+
+									" sensor:"+sensorType+
+									" length:"+length+
+									" sn"+sequenceNumber+
+									" ntpts:"+ntpts+
+									" rtpts:"+rtpts+
+									" packetCount:"+packetCount+
+									" octectCount:"+octectCount+
+									" cname:"+new String(cname));
+							
+							if (firstSR) {
+								firstSR = false;
+								long blindDelay = 1000000000L;
+								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
+							}
+							
+							//if (recStream.timingReady == false) {
+								recStream.updateTiming(rtpts, ntpts);
+								recStream.octectCount = octectCount;
+								recStream.packetCount = packetCount;
+							//}
+						} //sender report
+						else System.out.println("Unknown payload format, drop.");
+					} //valid response
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}// while true loop
+		}// run method of the thread
+	}//thread class
+	
+	
 	
 	void zeSenseClient () {
 		
@@ -145,316 +778,143 @@ public class ZeSenseClient extends JFrame {
 	    meters.setVisible(true);
 	    
 	    masterPlayoutManager = new ZeMasterPlayoutManager();
-		
-		accelPlayoutManager = new ZePlayoutManager<ZeAccelElement>();
-		accelPlayoutManager.master = masterPlayoutManager;
-		accelPlayoutManager.playoutFreq = Registry.ACCEL_PLAYOUT_FREQ;
-		accelPlayoutManager.playoutPer = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
-		accelPlayoutManager.playoutHalfPer = Registry.ACCEL_PLAYOUT_HALF_PERIOD * 1000000;
-		
-		accelDev = new ZeAccelDisplayDevice();
-		accelDev.playoutManager = accelPlayoutManager;
-		accelDev.meter = meters;
-		accelDev.start();
-		
-		proxPlayoutManager = new ZePlayoutManager<ZeProxElement>();
-		proxPlayoutManager.master = masterPlayoutManager;
-		proxPlayoutManager.playoutFreq = Registry.PROX_PLAYOUT_FREQ;
-		proxPlayoutManager.playoutPer = Registry.PROX_PLAYOUT_PERIOD * 1000000;
-		proxPlayoutManager.playoutHalfPer = Registry.PROX_PLAYOUT_HALF_PERIOD * 1000000;
-		
-		proxDev = new ZeProxDisplayDevice();
-		proxDev.playoutManager = proxPlayoutManager;
-		proxDev.meter = meters;
-		proxDev.start();
-		
-		lightPlayoutManager = new ZePlayoutManager<ZeLightElement>();
-		lightPlayoutManager.master = masterPlayoutManager;
-		lightPlayoutManager.playoutFreq = Registry.LIGHT_PLAYOUT_FREQ;
-		lightPlayoutManager.playoutPer = Registry.LIGHT_PLAYOUT_PERIOD * 1000000;
-		lightPlayoutManager.playoutHalfPer = Registry.LIGHT_PLAYOUT_HALF_PERIOD * 1000000;
-		
-		lightDev = new ZeLightDisplayDevice();
-		lightDev.playoutManager = lightPlayoutManager;
-		lightDev.meter = meters;
-		lightDev.start();
-		
+
 		streams = new ArrayList<ZeStream>();
-		
 		
 		CommunicatorFactory.getInstance().setUdpPort(48225);
 		
-		// initialize parameters
-		String method = null;
-		URI uri = null;
-		String payload = null;
-		
-		boolean firstSR = true;
-		//ZePlayoutBuffer<ZeAccelElement> a = new ZePlayoutBuffer<ZeAccelElement>()
-		
-		
 		Log.setLevel(Level.ALL);
 		Log.init();
+		
+		
+		URI uri = null;
+		byte[] payload = null;
+		try {
+			uri = new URI(Registry.HOST+Registry.ACCEL_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		// create request according to specified method
+		Request request = new POSTRequest();
+		// cook the request
+		request.setURI(uri);
+		request.setPayload(payload);
+		request.setToken( TokenManager.getInstance().acquireToken() );
+		request.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		// enable response queue in order to use blocking I/O
+		request.enableResponseQueue(true);		
+		request.prettyPrint();
 
+		try {
+			request.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}
+		
 
 		/*
-		// check if mandatory parameters specified
-		if (method == null) {
-			System.err.println("Method not specified");
-			System.exit(Registry.ERR_MISSING_METHOD);
-		}
-		if (uri == null) {
-			System.err.println("URI not specified");
-			System.exit(Registry.ERR_MISSING_URI);
-		}
-		*/
-		/*----------------------------------------------------------------------*/
-		
-		method = "OBSERVE";
+		ZeProxRecThread proxThread = new ZeProxRecThread();
+		proxThread.start();
 		try {
-			uri = new URI(HOST+LIGHT_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}
-		// create request according to specified method
-		Request lightRequest = new GETRequest() {
-			@Override
-			protected void handleResponse(Response response) {
-				System.out.println(" !!!!!!!!!!light TID:"+Thread.currentThread().getId());
-			}
-		};
-		if (lightRequest == null) {
-			System.err.println("Unknown method: " + method);
-			System.exit(Registry.ERR_UNKNOWN_METHOD);
-		}
-		// set request URI
-		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
-			// add discovery resource path to URI
-			try {
-				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
-				
-			} catch (URISyntaxException e) {
-				System.err.println("Failed to parse URI: " + e.getMessage());
-				System.exit(Registry.ERR_BAD_URI);
-			}
-		}
-		// if we want to observe, set the option
-		if (method.equals("OBSERVE")) {
-			lightRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
-			loop = true;
-		}
-		// cook the request
-		lightRequest.setURI(uri);
-		lightRequest.setPayload(payload);
-		byte[] lightToken = TokenManager.getInstance().acquireToken();
-		lightRequest.setToken( lightToken );
-		lightRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		// register a new stream associated with this token
-		streams.add(new ZeStream(lightToken, LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ));
-		// enable response queue in order to use blocking I/O
-		lightRequest.enableResponseQueue(true);		
-		lightRequest.prettyPrint();
-		// execute request
-		try {
-			lightRequest.execute();
-		} catch (UnknownHostException e) {
-			System.err.println("Unknown host: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		} catch (IOException e) {
-			System.err.println("Failed to execute request: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		}
-		
-		/*----------------------------------------------------------------------*/
-		
-		try {
-			Thread.sleep(500);
+			Thread.sleep(200);
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
 		
-		/*----------------------------------------------------------------------*/
-		
-		method = "OBSERVE";
+		ZeLightRecThread lightThread = new ZeLightRecThread();
+		lightThread.start();
 		try {
-			uri = new URI(HOST+PROX_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}
-		// create request according to specified method
-		Request proxRequest = new GETRequest() {
-			@Override
-			protected void handleResponse(Response response) {
-				System.out.println(" !!!!!!!!!!prox TID:"+Thread.currentThread().getId());
-			}
-		};
-		if (proxRequest == null) {
-			System.err.println("Unknown method: " + method);
-			System.exit(Registry.ERR_UNKNOWN_METHOD);
-		}
-		// set request URI
-		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
-			// add discovery resource path to URI
-			try {
-				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
-				
-			} catch (URISyntaxException e) {
-				System.err.println("Failed to parse URI: " + e.getMessage());
-				System.exit(Registry.ERR_BAD_URI);
-			}
-		}
-		// if we want to observe, set the option
-		if (method.equals("OBSERVE")) {
-			proxRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
-			loop = true;
-		}
-		// cook the request
-		proxRequest.setURI(uri);
-		proxRequest.setPayload(payload);
-		byte[] proxToken = TokenManager.getInstance().acquireToken();
-		proxRequest.setToken( proxToken );
-		proxRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		// register a new stream associated with this token
-		streams.add(new ZeStream(proxToken, PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
-		// enable response queue in order to use blocking I/O
-		proxRequest.enableResponseQueue(true);		
-		proxRequest.prettyPrint();
-		// execute request
-		try {
-			proxRequest.execute();
-		} catch (UnknownHostException e) {
-			System.err.println("Unknown host: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		} catch (IOException e) {
-			System.err.println("Failed to execute request: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		}
-		
-		/*----------------------------------------------------------------------*/
-		try {
-			Thread.sleep(500);
+			Thread.sleep(200);
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
-		/*---------------------------------------------------------------------*/
-		method = "OBSERVE";
-		try {
-			uri = new URI(HOST+ACCEL_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}		
-		// create request according to specified method
-		Request accelRequest = new GETRequest() {
-			@Override
-			protected void handleResponse(Response response) {
-				System.out.println(" !!!!!!!!!!accel TID:"+Thread.currentThread().getId());
-			}
-		};
-		if (accelRequest == null) {
-			System.err.println("Unknown method: " + method);
-			System.exit(Registry.ERR_UNKNOWN_METHOD);
-		}
-		// set request URI
-		if (method.equals("DISCOVER") && (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"))) {
-			// add discovery resource path to URI
-			try {
-				uri = new URI(uri.getScheme(), uri.getAuthority(), Registry.DISCOVERY_RESOURCE, uri.getQuery());
-				
-			} catch (URISyntaxException e) {
-				System.err.println("Failed to parse URI: " + e.getMessage());
-				System.exit(Registry.ERR_BAD_URI);
-			}
-		}
-		// if we want to observe, set the option
-		if (method.equals("OBSERVE")) {
-			accelRequest.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
-			loop = true;
-		}
-		// cook the request
-		accelRequest.setURI(uri);
-		accelRequest.setPayload(payload);
-		byte[] accelToken = TokenManager.getInstance().acquireToken();
-		accelRequest.setToken( accelToken );
-		accelRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		// register a new stream associated with this token
-		streams.add(new ZeStream(accelToken, ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
-		// enable response queue in order to use blocking I/O
-		accelRequest.enableResponseQueue(true);		
-		accelRequest.prettyPrint();
-		// execute request
-		try {
-			accelRequest.execute();
-		} catch (UnknownHostException e) {
-			System.err.println("Unknown host: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		} catch (IOException e) {
-			System.err.println("Failed to execute request: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		}
-		/*----------------------------------------------------------------------*/
-
-		int selector = 1;
-		
-		/*------> HERE <---------*/
 		
 
-		// Print out some stats
+
+		ZeAccelRecThread accelThread = new ZeAccelRecThread();
+		accelThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+
+		ZeOrientRecThread orientThread = new ZeOrientRecThread();
+		orientThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+
+		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
+		gyroThread.start();
 		
 		
-		// finish
+		try {
+			accelThread.join();
+			proxThread.join();
+			lightThread.join();
+			orientThread.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		 */
+
 		System.out.println();
 	}
 	
-	/*
-	 * Outputs user guide of this program.
-	 */
-	public static void printInfo() {
-		System.out.println("Californium (Cf) Example Client");
-		System.out.println("(c) 2012, Institute for Pervasive Computing, ETH Zurich");
-		System.out.println();
-		System.out.println("Usage: " + ZeSenseClient.class.getSimpleName() + " [-l] METHOD URI [PAYLOAD]");
-		System.out.println("  METHOD  : {GET, POST, PUT, DELETE, DISCOVER, OBSERVE}");
-		System.out.println("  URI     : The CoAP URI of the remote endpoint or resource");
-		System.out.println("  PAYLOAD : The data to send with the request");
-		System.out.println("Options:");
-		System.out.println("  -l      : Loop for multiple responses");
-		System.out.println("           (automatic for OBSERVE and separate responses)");
-		System.out.println();
-		System.out.println("Examples:");
-		System.out.println("  ExampleClient DISCOVER coap://localhost");
-		System.out.println("  ExampleClient POST coap://vs0.inf.ethz.ch:5683/storage my data");
-	}
-
-	/*
-	 * Instantiates a new request based on a string describing a method.
-	 * 
-	 * @return A new request object, or null if method not recognized
-	 */
-	private static Request newRequest(String method) {
-		if (method.equals("GET")) {
-			return new GETRequest();
-		} else if (method.equals("POST")) {
-			return new POSTRequest();
-		} else if (method.equals("PUT")) {
-			return new PUTRequest();
-		} else if (method.equals("DELETE")) {
-			return new DELETERequest();
-		} else if (method.equals("DISCOVER")) {
-			return new GETRequest();
-		} else if (method.equals("OBSERVE")) {
-			return new GETRequest();
-		} else {
-			return null;
-		}
-	}
-	
-	ZeStream findStream(ArrayList<ZeStream> list, byte[] token, String resource) {
+	synchronized ZeStream findStream(ArrayList<ZeStream> list, byte[] token, String resource) {
 		for (ZeStream s : list) {
-			System.out.println("Iter");
+			//System.out.println("Iter");
 		    if (Arrays.equals(s.token, token) && s.resource.equals(resource))
 		    	return s;
 		}
 		return null;
+	}
+	
+	
+	public Request prepareObserveRequest(String resourcePath) {
+		String method = "OBSERVE";
+		URI uri = null;
+		String payload = null;
+		try {
+			uri = new URI(Registry.HOST+resourcePath);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		// create request according to specified method
+		Request request = new GETRequest();
+		// if we want to observe, set the option
+		if (method.equals("OBSERVE")) {
+			request.setOption(new Option(0, OptionNumberRegistry.OBSERVE));
+			loop = true;
+		}
+		// cook the request
+		request.setURI(uri);
+		request.setPayload(payload);
+		request.setToken( TokenManager.getInstance().acquireToken() );
+		request.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		// enable response queue in order to use blocking I/O
+		request.enableResponseQueue(true);		
+		request.prettyPrint();
+		return request;
+	}
+	
+	public void executeRequest(Request request) {
+		try {
+			request.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}
 	}
 
 }

@@ -66,10 +66,26 @@ public class Registry {
 	public static final int LIGHT_PLAYOUT_PERIOD = 100; //msec
 	public static final int LIGHT_PLAYOUT_HALF_PERIOD = 50; //msec
 	
+	public static final int ORIENT_STREAM_FREQ = 5;
+	public static final int ORIENT_PLAYOUT_FREQ = 10; //HZ
+	public static final int ORIENT_PLAYOUT_PERIOD = 100; //msec
+	public static final int ORIENT_PLAYOUT_HALF_PERIOD = 50; //msec
+	
+	public static final int GYRO_STREAM_FREQ = 5;
+	public static final int GYRO_PLAYOUT_FREQ = 10; //HZ
+	public static final int GYRO_PLAYOUT_PERIOD = 100; //msec
+	public static final int GYRO_PLAYOUT_HALF_PERIOD = 50; //msec
 	
 	public static final int PLAYOUT_HOLD = 1;
 	public static final int PLAYOUT_VALID = 2;
 	public static final int PLAYOUT_INVALID = 3;
 	public static final int PLAYOUT_OVERFLOW = 4;
+	
+	public static final String HOST = "coap://192.168.43.1:5683";
+	public static final String ACCEL_RESOURCE_PATH = "/accel";
+	public static final String PROX_RESOURCE_PATH = "/proximity";
+	public static final String LIGHT_RESOURCE_PATH = "/light";
+	public static final String ORIENT_RESOURCE_PATH = "/orientation";
+	public static final String GYRO_RESOURCE_PATH = "/gyroscope";
 
 }

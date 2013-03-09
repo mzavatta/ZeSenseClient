@@ -50,6 +50,14 @@ public class ZeMeters extends ApplicationFrame {
     public DefaultValueDataset lightDataset;
     XYSeriesCollection lightBufferDataset;
     XYSeries lightBufferSeries;
+    
+    public DefaultValueDataset orientDataset;
+    XYSeriesCollection orientBufferDataset;
+    XYSeries orientBufferSeries;
+    
+    public DefaultValueDataset gyroDataset;
+    XYSeriesCollection gyroBufferDataset;
+    XYSeries gyroBufferSeries;
    
     /**
      * Creates a new demo.
@@ -60,7 +68,7 @@ public class ZeMeters extends ApplicationFrame {
         super(title);		
         JPanel chartPanel = createDemoPanel();
         //chartPanel.setMaximumSize(new Dimension(100,100));
-        chartPanel.setPreferredSize(new Dimension(1000, 500));
+        chartPanel.setPreferredSize(new Dimension(700, 570));
         setContentPane(chartPanel);
     }
     
@@ -73,22 +81,32 @@ public class ZeMeters extends ApplicationFrame {
     	accelBufferSeries = new XYSeries("Accel Buffer");
     	proxBufferSeries = new XYSeries("Prox Buffer");
     	lightBufferSeries = new XYSeries("Light Buffer");
+    	orientBufferSeries = new XYSeries("Orient Buffer");
+    	gyroBufferSeries = new XYSeries("Gyro Buffer");
     	accelUnderflowSeries = new XYSeries("Accel Underflow");
     	XYSeriesCollection accelBufferDataset = new XYSeriesCollection();
     	XYSeriesCollection proxBufferDataset = new XYSeriesCollection();
     	XYSeriesCollection lightBufferDataset = new XYSeriesCollection();
+    	XYSeriesCollection orientBufferDataset = new XYSeriesCollection();
+    	XYSeriesCollection gyroBufferDataset = new XYSeriesCollection();
     	accelBufferDataset.addSeries(accelBufferSeries);
     	accelBufferDataset.addSeries(accelUnderflowSeries);
     	proxBufferDataset.addSeries(proxBufferSeries);
     	lightBufferDataset.addSeries(lightBufferSeries);
+    	orientBufferDataset.addSeries(orientBufferSeries);
+      	gyroBufferDataset.addSeries(gyroBufferSeries);
         accelDataset = new DefaultValueDataset(0.0);
         locationDataset = new DefaultValueDataset(0.0);
         proxDataset = new DefaultValueDataset(0.0);
         lightDataset = new DefaultValueDataset(0.0);
+        orientDataset = new DefaultValueDataset(0.0);
+        gyroDataset = new DefaultValueDataset(0.0);
         JFreeChart accelChart = createAccelChart(accelDataset, "Accelerometer");
         JFreeChart locationChart = createChart(locationDataset, "Location");
         JFreeChart proxChart = createProxChart(proxDataset, "Proximity");
         JFreeChart lightChart = createLightChart(lightDataset, "Light");
+        JFreeChart orientChart = createOrientChart(orientDataset, "Orientation");
+        JFreeChart gyroChart = createGyroChart(gyroDataset, "Gyroscope");
         JFreeChart accelBufferChart = ChartFactory.createXYLineChart(
         		"Accel Buffer", // chart title
         		"X", // x axis label
@@ -119,7 +137,27 @@ public class ZeMeters extends ApplicationFrame {
         		false, // tooltips
         		false // urls
         		);
-        JPanel panel = new JPanel(new GridLayout(3, 3));
+        JFreeChart orientBufferChart = ChartFactory.createXYLineChart(
+        		"Orient Buffer", // chart title
+        		"X", // x axis label
+        		"Y", // y axis label
+        		orientBufferDataset, // data
+        		PlotOrientation.VERTICAL,
+        		false, // include legend
+        		false, // tooltips
+        		false // urls
+        		);
+        JFreeChart gyroBufferChart = ChartFactory.createXYLineChart(
+        		"Gyro Buffer", // chart title
+        		"X", // x axis label
+        		"Y", // y axis label
+        		gyroBufferDataset, // data
+        		PlotOrientation.VERTICAL,
+        		false, // include legend
+        		false, // tooltips
+        		false // urls
+        		);
+        JPanel panel = new JPanel(new GridLayout(4, 4));
         /*JSlider slider = new JSlider(0, 100, 50);
         slider.setMajorTickSpacing(10);
         slider.setMinorTickSpacing(5);
@@ -132,12 +170,16 @@ public class ZeMeters extends ApplicationFrame {
             }
         });*/
         panel.add(new ChartPanel(accelChart));
-        panel.add(new ChartPanel(locationChart));
-        panel.add(new ChartPanel(accelBufferChart));
         panel.add(new ChartPanel(proxChart));
-        panel.add(new ChartPanel(proxBufferChart));
         panel.add(new ChartPanel(lightChart));
+        panel.add(new ChartPanel(orientChart));
+        panel.add(new ChartPanel(gyroChart));
+        //panel.add(new ChartPanel(locationChart));
+        panel.add(new ChartPanel(accelBufferChart));
+        panel.add(new ChartPanel(proxBufferChart));
         panel.add(new ChartPanel(lightBufferChart));
+        panel.add(new ChartPanel(orientBufferChart));
+        panel.add(new ChartPanel(gyroBufferChart));
         //panel.add(BorderLayout.SOUTH, slider);
         return panel;
     }
@@ -185,9 +227,31 @@ public class ZeMeters extends ApplicationFrame {
     
     private static JFreeChart createLightChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
-        plot.setRange(new Range(0, 600));
-        plot.addInterval(new MeterInterval("High", new Range(500, 600)));
-        plot.addInterval(new MeterInterval("Low", new Range(0, 100)));
+        plot.setRange(new Range(0, 2500));
+        plot.addInterval(new MeterInterval("High", new Range(2100, 2500)));
+        plot.addInterval(new MeterInterval("Low", new Range(0, 400)));
+        plot.setDialOutlinePaint(Color.white);
+        JFreeChart chart = new JFreeChart(name,
+                JFreeChart.DEFAULT_TITLE_FONT, plot, false);
+        return chart;
+    }
+    
+    private static JFreeChart createOrientChart(ValueDataset dataset, String name) {
+        MeterPlot plot = new MeterPlot(dataset);
+        plot.setRange(new Range(-180, 180));
+        plot.addInterval(new MeterInterval("High", new Range(160, 180)));
+        plot.addInterval(new MeterInterval("Low", new Range(-180, -160)));
+        plot.setDialOutlinePaint(Color.white);
+        JFreeChart chart = new JFreeChart(name,
+                JFreeChart.DEFAULT_TITLE_FONT, plot, false);
+        return chart;
+    }
+    
+    private static JFreeChart createGyroChart(ValueDataset dataset, String name) {
+        MeterPlot plot = new MeterPlot(dataset);
+        plot.setRange(new Range(-20, 20));
+        plot.addInterval(new MeterInterval("High", new Range(15, 20)));
+        plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
         plot.setDialOutlinePaint(Color.white);
         JFreeChart chart = new JFreeChart(name,
                 JFreeChart.DEFAULT_TITLE_FONT, plot, false);
