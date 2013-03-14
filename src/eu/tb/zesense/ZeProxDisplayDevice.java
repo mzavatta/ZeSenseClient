@@ -1,5 +1,7 @@
 package eu.tb.zesense;
 
+import java.awt.Color;
+
 public class ZeProxDisplayDevice extends Thread {
 
 	ZePlayoutManager<ZeProxElement> playoutManager;
@@ -21,25 +23,31 @@ public class ZeProxDisplayDevice extends Thread {
 	    while (ZeSenseClient.loop) {
 	   
 	    	ZePlayoutElement<ZeProxElement> elem = playoutManager.get();
+	    	
+	    	if (meter.proxBufferSeries.getItemCount() > Registry.REDRAW_THRESHOLD) {
+				meter.proxBufferSeries.clear();
+	    	}
 			meter.proxBufferSeries.add(meter.proxBufferSeries.getItemCount()+1,
 					playoutManager.size());
 			
-			if (elem != null) { //buffer found empty
+			if (elem.meaning == Registry.PLAYOUT_VALID) {
+				meter.proxDataset.setValue(new Float(elem.element.distance));
+				if (meter.proxPlot.getNeedlePaint() == Color.GRAY)
+					meter.proxPlot.setNeedlePaint(Color.GREEN);
+			}
+			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
 
-				if (elem.meaning == Registry.PLAYOUT_VALID) {
-					meter.proxDataset.setValue(new Float(elem.element.distance));
-				}
-				else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-					meter.proxDataset.setValue(new Float(0));
-				}
+				//meter.proxDataset.setValue(new Float(0));
+				meter.proxPlot.setNeedlePaint(Color.GRAY);
 			}
 			else {
-				meter.proxDataset.setValue(new Float(0)); //invalid and buffer underflow result
+
+			}
+				//meter.proxDataset.setValue(new Float(0)); //invalid and buffer underflow result
 				//in the same effect for the user but streamwise they are not the same
 				//thing
 				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-			}
-	    	
+				
 			try {
 				Thread.sleep(Registry.PROX_PLAYOUT_PERIOD);
 			} catch (InterruptedException e) {
@@ -47,6 +55,6 @@ public class ZeProxDisplayDevice extends Thread {
 			}
 	    }
 	    
-	    System.out.println("Underflow count prox = "+playoutManager.underflowCount);
+	    //System.out.println("Underflow count prox = "+playoutManager.underflowCount);
 	}
 }

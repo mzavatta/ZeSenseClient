@@ -22,9 +22,14 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	/* Internal non-functional stats. */
 	int holdcount = 0;
 	int underflowCount  = 0;
+	/* Only count stuff that I have, not that I don't have.
+	 * Stuff that I don't have we take it by subtraction
+	 * with the total.
+	 */
+	int skipped = 0;
+	int played = 0;
 	
 	E current;
-
 	
 	ZeMasterPlayoutManager master;
 	
@@ -43,8 +48,9 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		while ( !isEmpty() ) {
 			System.out.println(Long.toString(master.mpo+first().wallclock)+" interval:"+Long.toString(now-playoutHalfPer)+":"+Long.toString(now+playoutHalfPer));
 			if ((first().wallclock+master.mpo) < (now-playoutHalfPer)) {
-				E skipped = pollFirst();
-				System.out.println("Late skipped "+skipped.sensorId);
+				E s = pollFirst();
+				System.out.println("Late skipped "+s.sensorId);
+				skipped++;
 			}
 			else if ( (first().wallclock+master.mpo) >= (now-playoutHalfPer) && 
 					(first().wallclock+master.mpo) <= (now+playoutHalfPer) ) {
@@ -54,6 +60,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 				current = pollFirst();
 				elem.element = current;
 				elem.meaning = Registry.PLAYOUT_VALID;
+				played++;
 				return elem;
 			}
 			else {
@@ -98,7 +105,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		//System.out.println("Found empty but playout not yet started");
 		ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 		elem.element = null;
-		elem.meaning = Registry.PLAYOUT_INVALID;
+		elem.meaning = Registry.PLAYOUT_NOTSTARTED;
 		return elem; //buffer found empty
 	}
 	

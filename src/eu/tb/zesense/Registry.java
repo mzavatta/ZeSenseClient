@@ -23,6 +23,10 @@ public class Registry {
 	public static final int SENDREPORT	= 2;
 	public static final int RECREPORT	= 3;
 	
+	
+	public static final int BLIND_DELAY = 250000000; //250ms
+
+	
 	/* <source>/hardware/libhardware/include/hardware/sensors.h */
 	public static final int SENSOR_TYPE_ACCELEROMETER 		= 1;
 	public static final int SENSOR_TYPE_MAGNETIC_FIELD 		= 2;
@@ -40,9 +44,12 @@ public class Registry {
 	// Definitions for our custom types
 	public static final int ZESENSE_SENSOR_TYPE_LOCATION		= 14;
 	
-	
+	public static final int RR_BANDWIDTH_THRESHOLD = 1000; //bytes
 	public static final int PAYLOAD_HDR_LENGTH = 4; //bytes
-	
+	public static final int CNAME_LENGTH = 12;
+	public static final String CNAME = "host@zesense";
+	public static final int PAYLOAD_RR_LENGTH = PAYLOAD_HDR_LENGTH+20+CNAME_LENGTH; //bytes, whole payload
+			
 	/* Modeled as agreed in advance e.g. RTP A/V profile. */
 	public static final int WALLCLOCK_FREQ = 1000000000; //Hz
 	public static final int TIMESTAMP_FREQ = 1000; //Hz
@@ -80,12 +87,17 @@ public class Registry {
 	public static final int PLAYOUT_VALID = 2;
 	public static final int PLAYOUT_INVALID = 3;
 	public static final int PLAYOUT_OVERFLOW = 4;
+	public static final int PLAYOUT_NOTSTARTED = 4;
 	
 	public static final String HOST = "coap://192.168.43.1:5683";
+	public static final int LOCAL_PORT = 48225;
+	public static final int LOCAL_TEST_PORT = 48226;
 	public static final String ACCEL_RESOURCE_PATH = "/accel";
 	public static final String PROX_RESOURCE_PATH = "/proximity";
 	public static final String LIGHT_RESOURCE_PATH = "/light";
 	public static final String ORIENT_RESOURCE_PATH = "/orientation";
 	public static final String GYRO_RESOURCE_PATH = "/gyroscope";
+	
+	public static final int REDRAW_THRESHOLD = 500;
 
 }

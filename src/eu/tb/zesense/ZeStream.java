@@ -12,15 +12,26 @@ public class ZeStream {
 	boolean timingReady = false;
 	int streamFrequency;
 	
-	/* Sender side statistics. */
-	int packetCount;
-	int octectCount;
+	/* Sender side statistics (they are not information on the actual stuff received). */
+	int packetCount = 0;
+	int octectCount = 0;
+	
+	/* Effective reception statistics as we see them.
+	 * They only count data packets and not sender reports.
+	 * Octects received account only for payload, to be comparable
+	 * to octectCount that arrives from sender reports, which by RFC3550
+	 * must account only for payload octects. */
+	int octectsReceived = 0;
+	int samplesReceived = 0;
+	
+	/* Reference for the bandwidth check for receiver reports. */
+	int octectsReceivedAtLastRR = 0;
 	
 	/* Internal statistics. */
 	int minSeqNumber = -1;
 	int maxSeqNumber = -1;
 	int oooCount; //out of order count
-	int packetsReceived; //to be compared with packetCount
+
 
 	public ZeStream(byte[] token, String resource, int streamFrequency) {
 		this.token = token;
@@ -48,15 +59,19 @@ public class ZeStream {
 		// p.playout viene assegnato dall'inter-stream synchronizer
 	}
 	
-	public void registerArrival(ZeSensorElement event) {
-		packetsReceived++;
+	// Total payload length received and sequence number
+	public void registerSampleArrival(int length) {
+		octectsReceived+=length;
+		samplesReceived++;
+		/*
 		if (maxSeqNumber==-1) { //first packet ever received
-			maxSeqNumber = event.sequenceNumber;
+			maxSeqNumber = sequenceNumber;
 		}
 		else {
-			if (event.sequenceNumber < maxSeqNumber) //out of order
+			if (sequenceNumber < maxSeqNumber) //out of order
 				oooCount++;
 		}
+		*/
 	}
 	
 	public void finalStatistics() {

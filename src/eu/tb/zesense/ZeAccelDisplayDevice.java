@@ -1,5 +1,7 @@
 package eu.tb.zesense;
 
+import java.awt.Color;
+
 public class ZeAccelDisplayDevice extends Thread {
 	
 	ZePlayoutManager<ZeAccelElement> playoutManager;
@@ -23,26 +25,34 @@ public class ZeAccelDisplayDevice extends Thread {
 	    while (ZeSenseClient.loop) {
 	    	
 	    	ZePlayoutElement<ZeAccelElement> elem = playoutManager.get();
+	    	
+	    	if (meter.accelBufferSeries.getItemCount() > Registry.REDRAW_THRESHOLD) {
+				meter.accelBufferSeries.clear();
+	    	}
 			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,
 					playoutManager.size());
-			
-			if (elem != null) { //buffer found empty
 
-				if (elem.meaning == Registry.PLAYOUT_VALID) {
-					meter.accelDataset.setValue(new Float(elem.element.z));
-				}
-				else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-					meter.accelDataset.setValue(new Float(0));
-				}
-				// else playout hold, don't change what's being displayeds
+			
+			if (elem.meaning == Registry.PLAYOUT_VALID) {
+				meter.accelDataset.setValue(new Float(elem.element.z));
+				if (meter.accelPlot.getNeedlePaint() == Color.GRAY)
+					meter.accelPlot.setNeedlePaint(Color.GREEN);
 			}
+			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
+				//meter.accelDataset.setValue(new Float(0));
+				meter.accelPlot.setNeedlePaint(Color.GRAY);
+			}
+			// else playout hold or playout not started, don't change what's being displayed
 			else {
-				meter.accelDataset.setValue(new Float(0)); //invalid and buffer underflow result
-				//in the same effect for the user but streamwise they are not the same
-				//thing
-				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
+				//
 			}
 	    	
+			//mmm the following might not be true..
+			//meter.accelDataset.setValue(new Float(0)); //invalid and buffer underflow result
+			//in the same effect for the user but streamwise they are not the same
+			//thing
+			//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
+			
 			/*
 	    	int ret = playoutManager.get(elem);
 			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,
@@ -68,6 +78,6 @@ public class ZeAccelDisplayDevice extends Thread {
 			}
 	    }
 	    
-	    System.out.println("Underflow count accel = "+playoutManager.underflowCount);
+	    //System.out.println("Underflow count accel = "+playoutManager.underflowCount);
 	}
 }

@@ -1,5 +1,7 @@
 package eu.tb.zesense;
 
+import java.awt.Color;
+
 public class ZeOrientDisplayDevice extends Thread {
 
 	ZePlayoutManager<ZeOrientElement> playoutManager;
@@ -23,26 +25,32 @@ public class ZeOrientDisplayDevice extends Thread {
 	    while (ZeSenseClient.loop) {
 	    	
 	    	ZePlayoutElement<ZeOrientElement> elem = playoutManager.get();
+	    	
+	    	if (meter.orientBufferSeries.getItemCount() > Registry.REDRAW_THRESHOLD) {
+				meter.orientBufferSeries.clear();
+	    	}
 			meter.orientBufferSeries.add(meter.orientBufferSeries.getItemCount()+1,
 					playoutManager.size());
 			
-			if (elem != null) { //buffer found empty
-
-				if (elem.meaning == Registry.PLAYOUT_VALID) {
-					meter.orientDataset.setValue(new Float(elem.element.pitch));
-				}
-				else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-					meter.orientDataset.setValue(new Float(0));
-				}
-				// else playout hold, don't change what's being displayeds
+			if (elem.meaning == Registry.PLAYOUT_VALID) {
+				meter.orientDataset.setValue(new Float(elem.element.pitch));
+				if (meter.orientPlot.getNeedlePaint() == Color.GRAY)
+					meter.orientPlot.setNeedlePaint(Color.GREEN);
 			}
+			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
+				//meter.orientDataset.setValue(new Float(0));
+				meter.orientPlot.setNeedlePaint(Color.GRAY);
+			}
+			// else playout hold, don't change what's being displayeds
 			else {
-				meter.orientDataset.setValue(new Float(0)); //invalid and buffer underflow result
+
+			}
+	    	
+				//meter.orientDataset.setValue(new Float(0)); //invalid and buffer underflow result
 				//in the same effect for the user but streamwise they are not the same
 				//thing
 				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-			}
-	    	
+				
 			/*
 	    	int ret = playoutManager.get(elem);
 			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,

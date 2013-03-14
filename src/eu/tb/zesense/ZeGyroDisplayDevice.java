@@ -1,5 +1,7 @@
 package eu.tb.zesense;
 
+import java.awt.Color;
+
 public class ZeGyroDisplayDevice extends Thread {
 
 	ZePlayoutManager<ZeGyroElement> playoutManager;
@@ -9,7 +11,7 @@ public class ZeGyroDisplayDevice extends Thread {
 	float a = 5;
 	
 	ZeGyroElement elem;
-	
+
 	@Override
 	public void run() {
 		
@@ -23,25 +25,31 @@ public class ZeGyroDisplayDevice extends Thread {
 	    while (ZeSenseClient.loop) {
 	    	
 	    	ZePlayoutElement<ZeGyroElement> elem = playoutManager.get();
+	    	
+	    	if (meter.gyroBufferSeries.getItemCount() > Registry.REDRAW_THRESHOLD) {
+				meter.gyroBufferSeries.clear();
+	    	}
 			meter.gyroBufferSeries.add(meter.gyroBufferSeries.getItemCount()+1,
 					playoutManager.size());
 			
-			if (elem != null) { //buffer found empty
-
-				if (elem.meaning == Registry.PLAYOUT_VALID) {
-					meter.gyroDataset.setValue(new Float(elem.element.x));
-				}
-				else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-					meter.gyroDataset.setValue(new Float(0));
-				}
-				// else playout hold, don't change what's being displayeds
+			if (elem.meaning == Registry.PLAYOUT_VALID) {
+				meter.gyroDataset.setValue(new Float(elem.element.x));
+				if (meter.gyroPlot.getNeedlePaint() == Color.GRAY)
+					meter.gyroPlot.setNeedlePaint(Color.GREEN);
 			}
+			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
+				//meter.gyroDataset.setValue(new Float(0));
+				meter.gyroPlot.setNeedlePaint(Color.GRAY);
+			}
+			// else playout hold, don't change what's being displayeds
 			else {
-				meter.gyroDataset.setValue(new Float(0)); //invalid and buffer underflow result
+				//
+			}
+				
+				//meter.gyroDataset.setValue(new Float(0)); //invalid and buffer underflow result
 				//in the same effect for the user but streamwise they are not the same
 				//thing
 				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-			}
 	    	
 			/*
 	    	int ret = playoutManager.get(elem);
@@ -68,7 +76,7 @@ public class ZeGyroDisplayDevice extends Thread {
 			}
 	    }
 	    
-	    System.out.println("Underflow count gyro = "+playoutManager.underflowCount);
+	    //System.out.println("Underflow count gyro = "+playoutManager.underflowCount);
 	}
 	
 }

@@ -10,6 +10,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.Paint;
 
 import javax.swing.JPanel;
 import javax.swing.JSlider;
@@ -19,6 +20,7 @@ import javax.swing.event.ChangeListener;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.DialShape;
 import org.jfree.chart.plot.MeterInterval;
 import org.jfree.chart.plot.MeterPlot;
 import org.jfree.chart.plot.PlotOrientation;
@@ -58,7 +60,7 @@ public class ZeMeters extends ApplicationFrame {
     public DefaultValueDataset gyroDataset;
     XYSeriesCollection gyroBufferDataset;
     XYSeries gyroBufferSeries;
-   
+    
     /**
      * Creates a new demo.
      *
@@ -185,6 +187,13 @@ public class ZeMeters extends ApplicationFrame {
     }
    
    
+    MeterPlot plot;
+    MeterPlot accelPlot;
+    MeterPlot proxPlot;
+    MeterPlot lightPlot;
+    MeterPlot orientPlot;
+    MeterPlot gyroPlot;
+    
     /**
      * Creates a sample chart.
      *
@@ -192,7 +201,7 @@ public class ZeMeters extends ApplicationFrame {
      *
      * @return The chart.
      */
-    private static JFreeChart createChart(ValueDataset dataset, String name) {
+    private JFreeChart createChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
         plot.setRange(new Range(-20, 20));
         plot.addInterval(new MeterInterval("High", new Range(15, 20)));
@@ -203,8 +212,9 @@ public class ZeMeters extends ApplicationFrame {
         return chart;
     }
     
-    private static JFreeChart createAccelChart(ValueDataset dataset, String name) {
+    private JFreeChart createAccelChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
+        accelPlot = plot;
         plot.setRange(new Range(-20, 20));
         plot.addInterval(new MeterInterval("High", new Range(15, 20)));
         plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
@@ -214,9 +224,11 @@ public class ZeMeters extends ApplicationFrame {
         return chart;
     }
     
-    private static JFreeChart createProxChart(ValueDataset dataset, String name) {
+    private JFreeChart createProxChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
+        proxPlot = plot;
         plot.setRange(new Range(0, 8));
+        //plot.setDialShape(DialShape.CHORD);
         plot.addInterval(new MeterInterval("High", new Range(7, 8)));
         plot.addInterval(new MeterInterval("Low", new Range(0, 1)));
         plot.setDialOutlinePaint(Color.white);
@@ -225,8 +237,10 @@ public class ZeMeters extends ApplicationFrame {
         return chart;
     }
     
-    private static JFreeChart createLightChart(ValueDataset dataset, String name) {
+    private JFreeChart createLightChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
+        lightPlot = plot;
+        //plot.setDialShape(DialShape.CIRCLE);
         plot.setRange(new Range(0, 2500));
         plot.addInterval(new MeterInterval("High", new Range(2100, 2500)));
         plot.addInterval(new MeterInterval("Low", new Range(0, 400)));
@@ -236,8 +250,9 @@ public class ZeMeters extends ApplicationFrame {
         return chart;
     }
     
-    private static JFreeChart createOrientChart(ValueDataset dataset, String name) {
+    private JFreeChart createOrientChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
+        orientPlot = plot;
         plot.setRange(new Range(-180, 180));
         plot.addInterval(new MeterInterval("High", new Range(160, 180)));
         plot.addInterval(new MeterInterval("Low", new Range(-180, -160)));
@@ -247,11 +262,14 @@ public class ZeMeters extends ApplicationFrame {
         return chart;
     }
     
-    private static JFreeChart createGyroChart(ValueDataset dataset, String name) {
+    private JFreeChart createGyroChart(ValueDataset dataset, String name) {
         MeterPlot plot = new MeterPlot(dataset);
-        plot.setRange(new Range(-20, 20));
-        plot.addInterval(new MeterInterval("High", new Range(15, 20)));
-        plot.addInterval(new MeterInterval("Low", new Range(-20, -15)));
+        gyroPlot = plot;
+        //plot.setDialShape(DialShape.PIE);
+        plot.setNeedlePaint(Color.GRAY);
+        plot.setRange(new Range(-10, 10));
+        plot.addInterval(new MeterInterval("High", new Range(8, 10)));
+        plot.addInterval(new MeterInterval("Low", new Range(-10, -8)));
         plot.setDialOutlinePaint(Color.white);
         JFreeChart chart = new JFreeChart(name,
                 JFreeChart.DEFAULT_TITLE_FONT, plot, false);

@@ -58,12 +58,19 @@ import java.awt.event.ActionListener;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
+import java.util.Date;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 import javax.swing.JButton;
@@ -73,20 +80,18 @@ import javax.swing.JPanel;
 import org.jfree.ui.RefineryUtilities;
 
 import ch.ethz.inf.vs.californium.coap.CommunicatorFactory;
-import ch.ethz.inf.vs.californium.coap.CommunicatorFactory.Communicator;
-import ch.ethz.inf.vs.californium.coap.DELETERequest;
 import ch.ethz.inf.vs.californium.coap.GETRequest;
+import ch.ethz.inf.vs.californium.coap.Message;
 import ch.ethz.inf.vs.californium.coap.Option;
 import ch.ethz.inf.vs.californium.coap.POSTRequest;
-import ch.ethz.inf.vs.californium.coap.PUTRequest;
 import ch.ethz.inf.vs.californium.coap.Request;
 import ch.ethz.inf.vs.californium.coap.Response;
 import ch.ethz.inf.vs.californium.coap.TokenManager;
 import ch.ethz.inf.vs.californium.coap.registries.MediaTypeRegistry;
 import ch.ethz.inf.vs.californium.coap.registries.OptionNumberRegistry;
-import ch.ethz.inf.vs.californium.endpoint.resources.RemoteResource;
-import ch.ethz.inf.vs.californium.endpoint.resources.Resource;
 import ch.ethz.inf.vs.californium.util.Log;
+
+
 
 public class ZeSenseClient extends JFrame {
 
@@ -99,22 +104,57 @@ public class ZeSenseClient extends JFrame {
 	
 	ArrayList<ZeStream> streams;
 	
+	DatagramSocket testSocket;
+	
 	ZePlayoutManager<ZeAccelElement> accelPlayoutManager;
 	ZeAccelDisplayDevice accelDev;
+	ZeStream accelStream;
 	
 	ZePlayoutManager<ZeProxElement> proxPlayoutManager;
 	ZeProxDisplayDevice proxDev;
+	ZeStream proxStream;
 	
 	ZePlayoutManager<ZeLightElement> lightPlayoutManager;
 	ZeLightDisplayDevice lightDev;
+	ZeStream lightStream;
 	
 	ZePlayoutManager<ZeOrientElement> orientPlayoutManager;
 	ZeOrientDisplayDevice orientDev;
+	ZeStream orientStream;
 	
 	ZePlayoutManager<ZeGyroElement> gyroPlayoutManager;
 	ZeGyroDisplayDevice gyroDev;
+	ZeStream gyroStream;
 	
 	static boolean loop = false;
+	
+	static int accelRRSent = 0;
+	static int proxRRSent = 0;
+	static int lightRRSent = 0;
+	static int gyroRRSent = 0;
+	static int orientRRSent = 0;
+	
+	static int accelSRRec = 0;
+	static int proxSRRec  = 0;
+	static int lightSRRec  = 0;
+	static int gyroSRRec  = 0;
+	static int orientSRRec  = 0;
+	
+	static int accelTotalNotifReceived = 0;
+	static int accelDataNotifReceived = 0;
+	static int accelDataBeforeTiming = 0;
+	
+	static int proxTotalNotifReceived = 0;
+	static int proxDataNotifReceived = 0;
+	static int proxDataBeforeTiming = 0;
+	
+	static int lightTotalNotifReceived = 0;
+	static int lightDataNotifReceived = 0;
+	static int lightDataBeforeTiming = 0;
+	
+	static int gyroTotalNotifReceived = 0;
+	static int gyroDataNotifReceived = 0;
+	static int gyroDataBeforeTiming = 0;
 
 	public ZeSenseClient() {
 	    setTitle("ZeSenseClient");
@@ -124,6 +164,8 @@ public class ZeSenseClient extends JFrame {
 	}
 	
 	boolean firstSR = true;
+	
+	Condition globalExit;
 	
 	public class ZeAccelRecThread extends Thread {
 		
@@ -146,10 +188,11 @@ public class ZeSenseClient extends JFrame {
 			accelDev.start();
 			
 			Request request = prepareObserveRequest(Registry.ACCEL_RESOURCE_PATH);
-			streams.add(new ZeStream(request.getToken(), Registry.ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ));
+			accelStream = new ZeStream(request.getToken(), Registry.ACCEL_RESOURCE_PATH, Registry.ACCEL_STREAM_FREQ);
+			streams.add(accelStream);
 			executeRequest(request);
 			
-			while(true) {
+			while(loop) {
 				
 				Response response = null;
 				
@@ -179,7 +222,11 @@ public class ZeSenseClient extends JFrame {
 						Option observeOpt = observeOptList.get(0);
 						int sequenceNumber = observeOpt.getIntValue();
 						
+						accelTotalNotifReceived++;
+						
 						if (packetType == Registry.DATAPOINT) {
+							
+							accelDataNotifReceived++;
 							
 							int timestamp = dataStream.readInt();
 							
@@ -192,7 +239,7 @@ public class ZeSenseClient extends JFrame {
 							event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
 							//event.meaning = Registry.PLAYOUT_VALID;
 							
-							recStream.registerArrival(event);
+							recStream.registerSampleArrival(pay.length);
 							
 							System.out.println("packet:"+packetType+
 									" sensor:"+sensorType+
@@ -209,9 +256,14 @@ public class ZeSenseClient extends JFrame {
 								meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
 										accelPlayoutManager.size());
 							}
-							else System.out.println("Not sending to playout, timing still unknown.");
+							else {
+								System.out.println("Not sending to playout, timing still unknown.");
+								accelDataBeforeTiming++;
+							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
+							
+							accelSRRec++;
 							
 							long ntpts = dataStream.readLong();							
 							int rtpts = dataStream.readInt();
@@ -230,11 +282,12 @@ public class ZeSenseClient extends JFrame {
 									" octectCount:"+octectCount+
 									" cname:"+new String(cname));
 							
+							/*
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 1000000000L;
+								long blindDelay = Registry.BLIND_DELAY;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
+							}*/
 							
 							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
@@ -243,6 +296,22 @@ public class ZeSenseClient extends JFrame {
 							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
+						
+						// if bandwidth threshold trigger receiver report
+						if (recStream.octectsReceived > recStream.octectsReceivedAtLastRR + Registry.RR_BANDWIDTH_THRESHOLD ) {
+							recStream.octectsReceivedAtLastRR = recStream.octectsReceived;
+							// for the moment do not fill it with any meaningful data,
+							// at the receiver side it's not at all used.
+							byte[] rrpay = new byte[Registry.PAYLOAD_RR_LENGTH];
+							//for (int i=0; i<rrpay.length; i++) rrpay[i] = (byte)(rrpay[i] & (1<<i));
+							//1,2,4,8...
+							//DataOutputStream dataRRStream = new DataOutputStream(
+							//	new ByteArrayOutputStream(Registry.PAYLOAD_RR_LENGTH));
+							sendRR(Registry.ACCEL_RESOURCE_PATH, rrpay);
+							accelRRSent++;
+						}
+						
+						
 					} //valid response
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -274,10 +343,11 @@ public class ZeSenseClient extends JFrame {
 			proxDev.start();
 			
 			Request request = prepareObserveRequest(Registry.PROX_RESOURCE_PATH);
-			streams.add(new ZeStream(request.getToken(), Registry.PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ));
+			proxStream = new ZeStream(request.getToken(), Registry.PROX_RESOURCE_PATH, Registry.PROX_STREAM_FREQ);
+			streams.add(proxStream);
 			executeRequest(request);
 		
-			while(true) {
+			while(loop) {
 				
 				Response response = null;
 				
@@ -307,7 +377,11 @@ public class ZeSenseClient extends JFrame {
 						Option observeOpt = observeOptList.get(0);
 						int sequenceNumber = observeOpt.getIntValue();
 						
+						proxTotalNotifReceived++;
+						
 						if (packetType == Registry.DATAPOINT) {
+							
+							proxDataNotifReceived++;
 							
 							int timestamp = dataStream.readInt();
 							ZeProxElement pevent = new ZeProxElement();
@@ -315,7 +389,7 @@ public class ZeSenseClient extends JFrame {
 							pevent.timestamp = timestamp;
 							pevent.sequenceNumber = sequenceNumber;
 							pevent.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
-							recStream.registerArrival(pevent);
+							recStream.registerSampleArrival(pay.length);
 							
 							System.out.println("packet:"+packetType+
 									" sensor:"+sensorType+
@@ -330,9 +404,14 @@ public class ZeSenseClient extends JFrame {
 								meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
 										proxPlayoutManager.size());
 							}
-							else System.out.println("Not sending to playout, timing still unknown.");
+							else {
+								proxDataBeforeTiming++;
+								System.out.println("Not sending to playout, timing still unknown.");
+							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
+							
+							proxSRRec++;
 							
 							long ntpts = dataStream.readLong();							
 							int rtpts = dataStream.readInt();
@@ -351,11 +430,12 @@ public class ZeSenseClient extends JFrame {
 									" octectCount:"+octectCount+
 									" cname:"+new String(cname));
 							
+							/*
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 1000000000L;
+								long blindDelay = Registry.BLIND_DELAY;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
+							}*/
 							
 							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
@@ -395,10 +475,11 @@ public class ZeSenseClient extends JFrame {
 			lightDev.start();
 			
 			Request request = prepareObserveRequest(Registry.LIGHT_RESOURCE_PATH);
-			streams.add(new ZeStream(request.getToken(), Registry.LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ));
+			ZeStream lightStream = new ZeStream(request.getToken(), Registry.LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ);
+			streams.add(lightStream);
 			executeRequest(request);
 			
-			while(true) {
+			while(loop) {
 				
 				Response response = null;
 				
@@ -428,7 +509,11 @@ public class ZeSenseClient extends JFrame {
 						Option observeOpt = observeOptList.get(0);
 						int sequenceNumber = observeOpt.getIntValue();
 						
+						lightTotalNotifReceived++;
+						
 						if (packetType == Registry.DATAPOINT) {
+							
+							lightDataNotifReceived++;
 							
 							int timestamp = dataStream.readInt();
 							ZeLightElement pevent = new ZeLightElement();
@@ -437,7 +522,7 @@ public class ZeSenseClient extends JFrame {
 							pevent.sequenceNumber = sequenceNumber;
 							pevent.sensorId = Registry.SENSOR_TYPE_LIGHT;
 							
-							recStream.registerArrival(pevent);
+							recStream.registerSampleArrival(pay.length);
 							
 							System.out.println("packet:"+packetType+
 									" sensor:"+sensorType+
@@ -452,9 +537,14 @@ public class ZeSenseClient extends JFrame {
 								meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
 										lightPlayoutManager.size());
 							}
-							else System.out.println("Not sending to playout, timing still unknown.");
+							else {
+								lightDataBeforeTiming++;
+								System.out.println("Not sending to playout, timing still unknown.");
+							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
+							
+							lightSRRec++;
 							
 							long ntpts = dataStream.readLong();							
 							int rtpts = dataStream.readInt();
@@ -472,12 +562,12 @@ public class ZeSenseClient extends JFrame {
 									" packetCount:"+packetCount+
 									" octectCount:"+octectCount+
 									" cname:"+new String(cname));
-							
+							/*
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 1000000000L;
+								long blindDelay = Registry.BLIND_DELAY;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
+							}*/
 							
 							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
@@ -518,10 +608,11 @@ public class ZeSenseClient extends JFrame {
 			orientDev.start();
 			
 			Request request = prepareObserveRequest(Registry.ORIENT_RESOURCE_PATH);
-			streams.add(new ZeStream(request.getToken(), Registry.ORIENT_RESOURCE_PATH, Registry.ORIENT_STREAM_FREQ));
+			orientStream = new ZeStream(request.getToken(), Registry.ORIENT_RESOURCE_PATH, Registry.ORIENT_STREAM_FREQ);
+			streams.add(orientStream);
 			executeRequest(request);
 			
-			while(true) {
+			while(loop) {
 				
 				Response response = null;
 				
@@ -551,6 +642,7 @@ public class ZeSenseClient extends JFrame {
 						Option observeOpt = observeOptList.get(0);
 						int sequenceNumber = observeOpt.getIntValue();
 						
+											
 						if (packetType == Registry.DATAPOINT) {
 							
 							int timestamp = dataStream.readInt();
@@ -564,7 +656,7 @@ public class ZeSenseClient extends JFrame {
 							event.sensorId = Registry.SENSOR_TYPE_ORIENTATION;
 							//event.meaning = Registry.PLAYOUT_VALID;
 							
-							recStream.registerArrival(event);
+							recStream.registerSampleArrival(pay.length);
 							
 							System.out.println("packet:"+packetType+
 									" sensor:"+sensorType+
@@ -602,11 +694,12 @@ public class ZeSenseClient extends JFrame {
 									" octectCount:"+octectCount+
 									" cname:"+new String(cname));
 							
+							/*
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 1000000000L;
+								long blindDelay = Registry.BLIND_DELAY;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
+							}*/
 							
 							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
@@ -646,10 +739,11 @@ public class ZeSenseClient extends JFrame {
 			gyroDev.start();
 			
 			Request request = prepareObserveRequest(Registry.GYRO_RESOURCE_PATH);
-			streams.add(new ZeStream(request.getToken(), Registry.GYRO_RESOURCE_PATH, Registry.GYRO_STREAM_FREQ));
+			gyroStream = new ZeStream(request.getToken(), Registry.GYRO_RESOURCE_PATH, Registry.GYRO_STREAM_FREQ);
+			streams.add(gyroStream);
 			executeRequest(request);
 			
-			while(true) {
+			while(loop) {
 				
 				Response response = null;
 				
@@ -679,7 +773,11 @@ public class ZeSenseClient extends JFrame {
 						Option observeOpt = observeOptList.get(0);
 						int sequenceNumber = observeOpt.getIntValue();
 						
+						gyroTotalNotifReceived++;
+						
 						if (packetType == Registry.DATAPOINT) {
+							
+							gyroDataNotifReceived++;
 							
 							int timestamp = dataStream.readInt();
 							
@@ -692,7 +790,7 @@ public class ZeSenseClient extends JFrame {
 							event.sensorId = Registry.SENSOR_TYPE_GYROSCOPE;
 							//event.meaning = Registry.PLAYOUT_VALID;
 							
-							recStream.registerArrival(event);
+							recStream.registerSampleArrival(pay.length);
 							
 							System.out.println("packet:"+packetType+
 									" sensor:"+sensorType+
@@ -709,9 +807,14 @@ public class ZeSenseClient extends JFrame {
 								meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
 										gyroPlayoutManager.size());
 							}
-							else System.out.println("Not sending to playout, timing still unknown.");
+							else {
+								gyroDataBeforeTiming++;
+								System.out.println("Not sending to playout, timing still unknown.");
+							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
+							
+							gyroSRRec++;
 							
 							long ntpts = dataStream.readLong();							
 							int rtpts = dataStream.readInt();
@@ -730,11 +833,12 @@ public class ZeSenseClient extends JFrame {
 									" octectCount:"+octectCount+
 									" cname:"+new String(cname));
 							
+							/*
 							if (firstSR) {
 								firstSR = false;
-								long blindDelay = 1000000000L;
+								long blindDelay = Registry.BLIND_DELAY;
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
-							}
+							}*/
 							
 							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
@@ -754,11 +858,60 @@ public class ZeSenseClient extends JFrame {
 	}//thread class
 	
 	
+	public class TestThread extends Thread {
+		
+		/* Used to catch the (only) message that arrives on the test socket.
+		 * It will be a sender report and it is going to have, in our
+		 * simulated environment, exactly the average network delay. */
+		
+		@Override
+		public void run() {
+			
+			System.out.println("Hello from TestThead");
+			
+			byte[] buffer = new byte[500];
+			DatagramPacket testDatagram = new DatagramPacket(buffer, buffer.length);
+			try { //blocking until we receive one
+				testSocket.receive(testDatagram);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			System.out.println("Something received on the test socket");
+			
+			// Use Californium to interpret the CoAP header
+			byte[] message = Arrays.copyOfRange(testDatagram.getData(),
+					testDatagram.getOffset(), testDatagram.getLength());
+			Message msg = Message.fromByteArray(message);
+			
+			// Extract the payload of the CoAP message
+			byte[] payload = msg.getPayload();
+			DataInputStream payloadStream = new DataInputStream(new ByteArrayInputStream(payload));
+			
+			try {
+				byte packetType = payloadStream.readByte();
+				byte sensorType = payloadStream.readByte();
+				short length = payloadStream.readShort();
+				long ntpts = payloadStream.readLong();
+				
+				System.out.println("ptype:"+packetType+" sensor:"+sensorType+" length:"+length+" NTP TS:"+ntpts);
+				
+				masterPlayoutManager.mpo = System.nanoTime() + Registry.BLIND_DELAY - ntpts;
+				
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+		}	
+	}
 	
 	void zeSenseClient () {
 		
 		System.out.println("This thread:"+Thread.currentThread().getId());
 	
+		//Lock lock = new ReentrantLock();
+		//globalExit = lock.newCondition();
+		
 		JPanel panel = new JPanel();
 		getContentPane().add(panel);
 		panel.setLayout(null);
@@ -767,6 +920,7 @@ public class ZeSenseClient extends JFrame {
 		quitButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent event) {
 				loop = false;
+				//globalExit.signal();
 			}
 		});
 		panel.add(quitButton);
@@ -781,16 +935,171 @@ public class ZeSenseClient extends JFrame {
 
 		streams = new ArrayList<ZeStream>();
 		
-		CommunicatorFactory.getInstance().setUdpPort(48225);
+		CommunicatorFactory.getInstance().setUdpPort(Registry.LOCAL_PORT);
 		
 		Log.setLevel(Level.ALL);
 		Log.init();
 		
+		try {
+			testSocket = new DatagramSocket(Registry.LOCAL_TEST_PORT);
+		} catch (SocketException e1) {
+			e1.printStackTrace();
+		}
+		System.out.println("Test socket opened on port:"+Registry.LOCAL_TEST_PORT);
+		TestThread testThread = new TestThread();
+		testThread.start();
 		
+		ZeProxRecThread proxThread = new ZeProxRecThread();
+		proxThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+		
+		
+		ZeLightRecThread lightThread = new ZeLightRecThread();
+		lightThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+	
+
+		ZeAccelRecThread accelThread = new ZeAccelRecThread();
+		accelThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+		
+/*
+		ZeOrientRecThread orientThread = new ZeOrientRecThread();
+		orientThread.start();
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
+*/
+		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
+		gyroThread.start();
+
+		
+		/*try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e2) {
+			e2.printStackTrace();
+		}
 		URI uri = null;
 		byte[] payload = null;
 		try {
 			uri = new URI(Registry.HOST+Registry.ACCEL_RESOURCE_PATH);
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+		Request oneRequest = new GETRequest();
+		oneRequest.setURI(uri);
+		oneRequest.setPayload(payload);
+		oneRequest.setToken( TokenManager.getInstance().acquireToken() );
+		oneRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
+		oneRequest.prettyPrint();
+		try {
+			oneRequest.execute();
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		} catch (IOException e) {
+			System.err.println("Failed to execute request: " + e.getMessage());
+			System.exit(Registry.ERR_REQUEST_FAILED);
+		}*/
+		
+		
+		while (loop) {
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		/*
+		System.out.println("Joining..");
+		
+		try {
+			accelThread.join();
+			proxThread.join();
+			lightThread.join();
+			//orientThread.join();
+			gyroThread.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}*/
+		 
+		/*
+		 * For the moment consider only Req/Res level statistics
+		 * to compute Delay Constrained Reliability.
+		 */
+		System.out.println("------- ZeSense Client ---------");
+		System.out.println(new Date().toString());
+		System.out.println("--- Accelerometer");
+		System.out.println("Total notifications received:"+accelTotalNotifReceived);
+		System.out.println("Data notifications received:"+accelDataNotifReceived);
+		System.out.println("Samples received:"+accelStream.samplesReceived); //for the moment
+		System.out.println("Sender reports received:"+accelSRRec);
+		System.out.println("Receiver reports sent:"+accelRRSent);
+		System.out.println("Data notifs arrived before timing:"+accelDataBeforeTiming);
+		System.out.println("Samples played:"+accelPlayoutManager.played);
+		System.out.println("Queue size at stop:"+accelPlayoutManager.size());
+		System.out.println("Samples skipped:"+accelPlayoutManager.skipped);
+		System.out.println("---");
+		System.out.println("--- Proximity");
+		System.out.println("Total notifications received:"+proxTotalNotifReceived);
+		System.out.println("Data notifications received:"+proxDataNotifReceived);
+		System.out.println("Samples received:"+proxStream.samplesReceived); //for the moment
+		System.out.println("Sender reports received:"+proxSRRec);
+		System.out.println("Receiver reports sent:"+proxRRSent);
+		System.out.println("Data notifs arrived before timing:"+proxDataBeforeTiming);
+		System.out.println("Samples played:"+proxPlayoutManager.played);
+		System.out.println("Queue size at stop:"+proxPlayoutManager.size());
+		System.out.println("Samples skipped:"+proxPlayoutManager.skipped);
+		System.out.println("---");
+		System.out.println("--- Light");
+		System.out.println("Total notifications received:"+lightTotalNotifReceived);
+		System.out.println("Data notifications received:"+lightDataNotifReceived);
+		System.out.println("Samples received:"+lightStream.samplesReceived); //for the moment
+		System.out.println("Sender reports received:"+lightSRRec);
+		System.out.println("Receiver reports sent:"+lightRRSent);
+		System.out.println("Data notifs arrived before timing:"+lightDataBeforeTiming);
+		System.out.println("Samples played:"+lightPlayoutManager.played);
+		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
+		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
+		System.out.println("---");
+		System.out.println("--- Gyroscope");
+		System.out.println("Total notifications received:"+gyroTotalNotifReceived);
+		System.out.println("Data notifications received:"+gyroDataNotifReceived);
+		System.out.println("Samples received:"+gyroStream.samplesReceived); //for the moment
+		System.out.println("Sender reports received:"+gyroSRRec);
+		System.out.println("Receiver reports sent:"+gyroRRSent);
+		System.out.println("Data notifs arrived before timing:"+gyroDataBeforeTiming);
+		System.out.println("Samples played:"+gyroPlayoutManager.played);
+		System.out.println("Queue size at stop:"+gyroPlayoutManager.size());
+		System.out.println("Samples skipped:"+gyroPlayoutManager.skipped);
+		System.out.println("---");
+
+
+		//System.out.println();
+	}
+	
+	
+	
+	// payload given null if no payload applies
+	public Request sendRR(String resourcePath, byte[] payload) {
+		URI uri = null;
+		try {
+			uri = new URI(Registry.HOST+resourcePath);
 		} catch (URISyntaxException e1) {
 			e1.printStackTrace();
 		}
@@ -802,7 +1111,7 @@ public class ZeSenseClient extends JFrame {
 		request.setToken( TokenManager.getInstance().acquireToken() );
 		request.setContentType(MediaTypeRegistry.TEXT_PLAIN);
 		// enable response queue in order to use blocking I/O
-		request.enableResponseQueue(true);		
+		//request.enableResponseQueue(true);	
 		request.prettyPrint();
 
 		try {
@@ -815,57 +1124,18 @@ public class ZeSenseClient extends JFrame {
 			System.exit(Registry.ERR_REQUEST_FAILED);
 		}
 		
-
-		/*
-		ZeProxRecThread proxThread = new ZeProxRecThread();
-		proxThread.start();
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
+		return request;
+		/*	
+		while (true) {
+			Response r = null;
+			try {
+				r = request.receiveResponse();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			r.prettyPrint();
 		}
-		
-		ZeLightRecThread lightThread = new ZeLightRecThread();
-		lightThread.start();
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
-		
-
-
-		ZeAccelRecThread accelThread = new ZeAccelRecThread();
-		accelThread.start();
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
-
-		ZeOrientRecThread orientThread = new ZeOrientRecThread();
-		orientThread.start();
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
-
-		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
-		gyroThread.start();
-		
-		
-		try {
-			accelThread.join();
-			proxThread.join();
-			lightThread.join();
-			orientThread.join();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		 */
-
-		System.out.println();
+		*/
 	}
 	
 	synchronized ZeStream findStream(ArrayList<ZeStream> list, byte[] token, String resource) {
