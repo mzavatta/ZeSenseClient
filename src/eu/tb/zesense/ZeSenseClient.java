@@ -289,11 +289,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							//if (recStream.timingReady == false) {
+							if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							//}
+							}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 						
@@ -437,11 +437,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							//if (recStream.timingReady == false) {
+							if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							//}
+							}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 					} //valid response
@@ -475,7 +475,7 @@ public class ZeSenseClient extends JFrame {
 			lightDev.start();
 			
 			Request request = prepareObserveRequest(Registry.LIGHT_RESOURCE_PATH);
-			ZeStream lightStream = new ZeStream(request.getToken(), Registry.LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ);
+			lightStream = new ZeStream(request.getToken(), Registry.LIGHT_RESOURCE_PATH, Registry.LIGHT_STREAM_FREQ);
 			streams.add(lightStream);
 			executeRequest(request);
 			
@@ -569,11 +569,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							//if (recStream.timingReady == false) {
+							if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							//}
+							}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 					} //valid response
@@ -701,11 +701,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							//if (recStream.timingReady == false) {
+							if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							//}
+							}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 					} //valid response
@@ -840,11 +840,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							//if (recStream.timingReady == false) {
+							if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							//}
+							}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 					} //valid response
@@ -1066,17 +1066,6 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+proxPlayoutManager.size());
 		System.out.println("Samples skipped:"+proxPlayoutManager.skipped);
 		System.out.println("---");
-		System.out.println("--- Light");
-		System.out.println("Total notifications received:"+lightTotalNotifReceived);
-		System.out.println("Data notifications received:"+lightDataNotifReceived);
-		System.out.println("Samples received:"+lightStream.samplesReceived); //for the moment
-		System.out.println("Sender reports received:"+lightSRRec);
-		System.out.println("Receiver reports sent:"+lightRRSent);
-		System.out.println("Data notifs arrived before timing:"+lightDataBeforeTiming);
-		System.out.println("Samples played:"+lightPlayoutManager.played);
-		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
-		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
-		System.out.println("---");
 		System.out.println("--- Gyroscope");
 		System.out.println("Total notifications received:"+gyroTotalNotifReceived);
 		System.out.println("Data notifications received:"+gyroDataNotifReceived);
@@ -1088,6 +1077,18 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+gyroPlayoutManager.size());
 		System.out.println("Samples skipped:"+gyroPlayoutManager.skipped);
 		System.out.println("---");
+		System.out.println("--- Light");
+		System.out.println("Total notifications received:"+lightTotalNotifReceived);
+		System.out.println("Data notifications received:"+lightDataNotifReceived);
+		System.out.println("Samples received:"+lightStream.samplesReceived); //for the moment
+		System.out.println("Sender reports received:"+lightSRRec);
+		System.out.println("Receiver reports sent:"+lightRRSent);
+		System.out.println("Data notifs arrived before timing:"+lightDataBeforeTiming);
+		System.out.println("Samples played:"+lightPlayoutManager.played);
+		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
+		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
+		System.out.println("---");
+
 
 
 		//System.out.println();

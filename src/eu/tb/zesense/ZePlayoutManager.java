@@ -162,7 +162,8 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	
 	long playoutToSystem() {
 		playoutTicks++;
-		if (playoutTicks==1) {	//first playout interrupt request
+		if ((playoutTicks%10) == 1) {	//first playout interrupt request
+			playoutTicks=0;
 			playoutFirstTime = System.nanoTime();
 			return playoutFirstTime;
 		}

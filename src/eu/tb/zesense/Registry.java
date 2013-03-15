@@ -24,7 +24,7 @@ public class Registry {
 	public static final int RECREPORT	= 3;
 	
 	
-	public static final int BLIND_DELAY = 250000000; //250ms
+	public static final int BLIND_DELAY = 175000000; //225ms
 
 	
 	/* <source>/hardware/libhardware/include/hardware/sensors.h */
