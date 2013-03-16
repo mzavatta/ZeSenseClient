@@ -49,6 +49,9 @@ public class Registry {
 	public static final int CNAME_LENGTH = 12;
 	public static final String CNAME = "host@zesense";
 	public static final int PAYLOAD_RR_LENGTH = PAYLOAD_HDR_LENGTH+20+CNAME_LENGTH; //bytes, whole payload
+	public static final int RTPTS_LENGTH = 4;
+	
+	public static final int ACCEL_SAMPLE_LENGTH = 60;
 			
 	/* Modeled as agreed in advance e.g. RTP A/V profile. */
 	public static final int WALLCLOCK_FREQ = 1000000000; //Hz

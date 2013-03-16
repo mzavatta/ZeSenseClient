@@ -228,38 +228,64 @@ public class ZeSenseClient extends JFrame {
 							
 							accelDataNotifReceived++;
 							
-							int timestamp = dataStream.readInt();
+							/*
+							 * number of samples in the data packet:
+							 * (length - hdrlength)/(rtptslength + samplelength)
+							 * PAYLOAD_HDR_LENGTH
+							 * RTPTS_LENGTH
+							 * ACCEL_SAMPLE_LENGTH
+							 */
+							int nSamples = (length-Registry.PAYLOAD_HDR_LENGTH)
+									/(Registry.RTPTS_LENGTH+Registry.ACCEL_SAMPLE_LENGTH);
 							
-							ZeAccelElement event = new ZeAccelElement();
-							event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-							event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
-							event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
-							event.timestamp = timestamp;
-							event.sequenceNumber = sequenceNumber;
-							event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
-							//event.meaning = Registry.PLAYOUT_VALID;
+							/* Where starts, w.r.t. the beginning of the payload, the next data
+							 * ascii-encoded float values. */
+							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
-							recStream.registerSampleArrival(pay.length);
+							for (int k=0; k<nSamples; k++) {
+							//while (number of samples in the packet)
+								
+								int timestamp = dataStream.readInt();
+								
+								ZeAccelElement event = new ZeAccelElement();
+								event.x = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19 )));
+								event.y = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+20, offsetValue+39)));
+								event.z = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+40, offsetValue+59)));
+								event.timestamp = timestamp;
+								event.sequenceNumber = sequenceNumber;
+								event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
+								//event.meaning = Registry.PLAYOUT_VALID;
+								
+								offsetValue += (Registry.ACCEL_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
+								dataStream.skip(Registry.ACCEL_SAMPLE_LENGTH);
+								
+								recStream.registerSampleArrival(pay.length);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" x:"+event.x+
+										" y:"+event.y+
+										" z:"+event.z);
+								
+								if (recStream.timingReady) {
+									recStream.toWallclock(event);
+									accelPlayoutManager.add(event);
+									meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
+											accelPlayoutManager.size());
+								}
+								else {
+									System.out.println("Not sending to playout, timing still unknown.");
+									accelDataBeforeTiming++;
+								}
 							
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" ts:"+timestamp+
-									" sn"+sequenceNumber+
-									" x:"+event.x+
-									" y:"+event.y+
-									" z:"+event.z);
-							
-							if (recStream.timingReady) {
-								recStream.toWallclock(event);
-								accelPlayoutManager.add(event);
-								meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
-										accelPlayoutManager.size());
 							}
-							else {
-								System.out.println("Not sending to playout, timing still unknown.");
-								accelDataBeforeTiming++;
-							}
+							//end while
 						}
 						else if (packetType == Registry.SENDREPORT) {
 							
