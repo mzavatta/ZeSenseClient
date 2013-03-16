@@ -409,30 +409,44 @@ public class ZeSenseClient extends JFrame {
 							
 							proxDataNotifReceived++;
 							
-							int timestamp = dataStream.readInt();
-							ZeProxElement pevent = new ZeProxElement();
-							pevent.distance = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-							pevent.timestamp = timestamp;
-							pevent.sequenceNumber = sequenceNumber;
-							pevent.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
-							recStream.registerSampleArrival(pay.length);
+							int nSamples = (length-Registry.PAYLOAD_HDR_LENGTH)
+									/(Registry.RTPTS_LENGTH+Registry.PROX_SAMPLE_LENGTH);
 							
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" ts:"+timestamp+
-									" sn"+sequenceNumber+
-									" dist:"+pevent.distance);
+							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
-							if (recStream.timingReady) {
-								recStream.toWallclock(pevent);
-								proxPlayoutManager.add(pevent);
-								meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
-										proxPlayoutManager.size());
-							}
-							else {
-								proxDataBeforeTiming++;
-								System.out.println("Not sending to playout, timing still unknown.");
+							for (int k=0; k<nSamples; k++) {
+								
+								int timestamp = dataStream.readInt();
+								
+								ZeProxElement pevent = new ZeProxElement();
+								pevent.distance = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								pevent.timestamp = timestamp;
+								pevent.sequenceNumber = sequenceNumber;
+								pevent.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
+								
+								offsetValue += (Registry.PROX_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
+								dataStream.skip(Registry.PROX_SAMPLE_LENGTH);
+								
+								recStream.registerSampleArrival(pay.length);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" dist:"+pevent.distance);
+								
+								if (recStream.timingReady) {
+									recStream.toWallclock(pevent);
+									proxPlayoutManager.add(pevent);
+									meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
+											proxPlayoutManager.size());
+								}
+								else {
+									proxDataBeforeTiming++;
+									System.out.println("Not sending to playout, timing still unknown.");
+								}
 							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
@@ -541,31 +555,44 @@ public class ZeSenseClient extends JFrame {
 							
 							lightDataNotifReceived++;
 							
-							int timestamp = dataStream.readInt();
-							ZeLightElement pevent = new ZeLightElement();
-							pevent.light = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-							pevent.timestamp = timestamp;
-							pevent.sequenceNumber = sequenceNumber;
-							pevent.sensorId = Registry.SENSOR_TYPE_LIGHT;
+							int nSamples = (length-Registry.PAYLOAD_HDR_LENGTH)
+									/(Registry.RTPTS_LENGTH+Registry.LIGHT_SAMPLE_LENGTH);
 							
-							recStream.registerSampleArrival(pay.length);
+							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" ts:"+timestamp+
-									" sn"+sequenceNumber+
-									" light:"+pevent.light);
-							
-							if (recStream.timingReady) {
-								recStream.toWallclock(pevent);
-								lightPlayoutManager.add(pevent);
-								meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
-										lightPlayoutManager.size());
-							}
-							else {
-								lightDataBeforeTiming++;
-								System.out.println("Not sending to playout, timing still unknown.");
+							for (int k=0; k<nSamples; k++) {
+								
+								int timestamp = dataStream.readInt();
+								
+								ZeLightElement pevent = new ZeLightElement();
+								pevent.light = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								pevent.timestamp = timestamp;
+								pevent.sequenceNumber = sequenceNumber;
+								pevent.sensorId = Registry.SENSOR_TYPE_LIGHT;
+								
+								offsetValue += (Registry.LIGHT_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
+								dataStream.skip(Registry.LIGHT_SAMPLE_LENGTH);
+								
+								recStream.registerSampleArrival(pay.length);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" light:"+pevent.light);
+								
+								if (recStream.timingReady) {
+									recStream.toWallclock(pevent);
+									lightPlayoutManager.add(pevent);
+									meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
+											lightPlayoutManager.size());
+								}
+								else {
+									lightDataBeforeTiming++;
+									System.out.println("Not sending to playout, timing still unknown.");
+								}
 							}
 						}
 						else if (packetType == Registry.SENDREPORT) {
@@ -671,35 +698,49 @@ public class ZeSenseClient extends JFrame {
 											
 						if (packetType == Registry.DATAPOINT) {
 							
-							int timestamp = dataStream.readInt();
+							int nSamples = (length-Registry.PAYLOAD_HDR_LENGTH)
+									/(Registry.RTPTS_LENGTH+Registry.ORIENT_SAMPLE_LENGTH);
 							
-							ZeOrientElement event = new ZeOrientElement();
-							event.azimuth = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-							event.pitch = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
-							event.roll = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
-							event.timestamp = timestamp;
-							event.sequenceNumber = sequenceNumber;
-							event.sensorId = Registry.SENSOR_TYPE_ORIENTATION;
-							//event.meaning = Registry.PLAYOUT_VALID;
+							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
-							recStream.registerSampleArrival(pay.length);
+							for (int k=0; k<nSamples; k++) {
 							
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" ts:"+timestamp+
-									" sn"+sequenceNumber+
-									" azimuth:"+event.azimuth+
-									" pitch:"+event.pitch+
-									" roll:"+event.roll);
-							
-							if (recStream.timingReady) {
-								recStream.toWallclock(event);
-								orientPlayoutManager.add(event);
-								meters.orientBufferSeries.add(meters.orientBufferSeries.getItemCount()+1,
-										orientPlayoutManager.size());
+								int timestamp = dataStream.readInt();
+								
+								ZeOrientElement event = new ZeOrientElement();
+								event.azimuth = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								event.pitch = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+20, offsetValue+39)));
+								event.roll = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+40, offsetValue+59)));
+								event.timestamp = timestamp;
+								event.sequenceNumber = sequenceNumber;
+								event.sensorId = Registry.SENSOR_TYPE_ORIENTATION;
+								//event.meaning = Registry.PLAYOUT_VALID;
+								
+								offsetValue += (Registry.ORIENT_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
+								dataStream.skip(Registry.ORIENT_SAMPLE_LENGTH);
+								
+								recStream.registerSampleArrival(pay.length);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" azimuth:"+event.azimuth+
+										" pitch:"+event.pitch+
+										" roll:"+event.roll);
+								
+								if (recStream.timingReady) {
+									recStream.toWallclock(event);
+									orientPlayoutManager.add(event);
+									meters.orientBufferSeries.add(meters.orientBufferSeries.getItemCount()+1,
+											orientPlayoutManager.size());
+								}
+								else System.out.println("Not sending to playout, timing still unknown.");
 							}
-							else System.out.println("Not sending to playout, timing still unknown.");
 						}
 						else if (packetType == Registry.SENDREPORT) {
 							
@@ -805,37 +846,51 @@ public class ZeSenseClient extends JFrame {
 							
 							gyroDataNotifReceived++;
 							
-							int timestamp = dataStream.readInt();
+							int nSamples = (length-Registry.PAYLOAD_HDR_LENGTH)
+									/(Registry.RTPTS_LENGTH+Registry.GYRO_SAMPLE_LENGTH);
 							
-							ZeGyroElement event = new ZeGyroElement();
-							event.x = Float.parseFloat(new String(Arrays.copyOfRange(pay, 8, 27)));
-							event.y = Float.parseFloat(new String(Arrays.copyOfRange(pay, 28, 47)));
-							event.z = Float.parseFloat(new String(Arrays.copyOfRange(pay, 48, 67)));
-							event.timestamp = timestamp;
-							event.sequenceNumber = sequenceNumber;
-							event.sensorId = Registry.SENSOR_TYPE_GYROSCOPE;
-							//event.meaning = Registry.PLAYOUT_VALID;
+							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
-							recStream.registerSampleArrival(pay.length);
+							for (int k=0; k<nSamples; k++) {
 							
-							System.out.println("packet:"+packetType+
-									" sensor:"+sensorType+
-									" length:"+length+
-									" ts:"+timestamp+
-									" sn"+sequenceNumber+
-									" x:"+event.x+
-									" y:"+event.y+
-									" z:"+event.z);
-							
-							if (recStream.timingReady) {
-								recStream.toWallclock(event);
-								gyroPlayoutManager.add(event);
-								meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
-										gyroPlayoutManager.size());
-							}
-							else {
-								gyroDataBeforeTiming++;
-								System.out.println("Not sending to playout, timing still unknown.");
+								int timestamp = dataStream.readInt();
+								
+								ZeGyroElement event = new ZeGyroElement();
+								event.x = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								event.y = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+20, offsetValue+39)));
+								event.z = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue+40, offsetValue+59)));
+								event.timestamp = timestamp;
+								event.sequenceNumber = sequenceNumber;
+								event.sensorId = Registry.SENSOR_TYPE_GYROSCOPE;
+								//event.meaning = Registry.PLAYOUT_VALID;
+								
+								offsetValue += (Registry.GYRO_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
+								dataStream.skip(Registry.GYRO_SAMPLE_LENGTH);
+								
+								recStream.registerSampleArrival(pay.length);
+								
+								System.out.println("packet:"+packetType+
+										" sensor:"+sensorType+
+										" length:"+length+
+										" ts:"+timestamp+
+										" sn"+sequenceNumber+
+										" x:"+event.x+
+										" y:"+event.y+
+										" z:"+event.z);
+								
+								if (recStream.timingReady) {
+									recStream.toWallclock(event);
+									gyroPlayoutManager.add(event);
+									meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
+											gyroPlayoutManager.size());
+								}
+								else {
+									gyroDataBeforeTiming++;
+									System.out.println("Not sending to playout, timing still unknown.");
+								}
 							}
 						}
 						else if (packetType == Registry.SENDREPORT) {

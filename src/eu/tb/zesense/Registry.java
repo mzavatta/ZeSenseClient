@@ -24,7 +24,7 @@ public class Registry {
 	public static final int RECREPORT	= 3;
 	
 	
-	public static final int BLIND_DELAY = 175000000; //225ms
+	public static final int BLIND_DELAY = 225000000; //200ms
 
 	
 	/* <source>/hardware/libhardware/include/hardware/sensors.h */
@@ -52,6 +52,10 @@ public class Registry {
 	public static final int RTPTS_LENGTH = 4;
 	
 	public static final int ACCEL_SAMPLE_LENGTH = 60;
+	public static final int ORIENT_SAMPLE_LENGTH = 60;
+	public static final int GYRO_SAMPLE_LENGTH = 60;
+	public static final int PROX_SAMPLE_LENGTH = 20;
+	public static final int LIGHT_SAMPLE_LENGTH = 20;
 			
 	/* Modeled as agreed in advance e.g. RTP A/V profile. */
 	public static final int WALLCLOCK_FREQ = 1000000000; //Hz
@@ -61,30 +65,30 @@ public class Registry {
 	 * request by request and communicated to the server as a resource
 	 * query string or something similar.
 	 */
-	public static final int ACCEL_STREAM_FREQ = 5;
-	public static final int ACCEL_PLAYOUT_FREQ = 10; //HZ
-	public static final int ACCEL_PLAYOUT_PERIOD = 100; //msec
-	public static final int ACCEL_PLAYOUT_HALF_PERIOD = 50; //msec
+	public static final int ACCEL_STREAM_FREQ = 10;
+	public static final int ACCEL_PLAYOUT_FREQ = 20; //HZ
+	public static final int ACCEL_PLAYOUT_PERIOD = 50; //msec
+	public static final int ACCEL_PLAYOUT_HALF_PERIOD = 25; //msec
 	
-	public static final int PROX_STREAM_FREQ = 5;
-	public static final int PROX_PLAYOUT_FREQ = 10; //HZ
-	public static final int PROX_PLAYOUT_PERIOD = 100; //msec
-	public static final int PROX_PLAYOUT_HALF_PERIOD = 50; //msec
+	public static final int PROX_STREAM_FREQ = 10;
+	public static final int PROX_PLAYOUT_FREQ = 20; //HZ
+	public static final int PROX_PLAYOUT_PERIOD = 50; //msec
+	public static final int PROX_PLAYOUT_HALF_PERIOD = 25; //msec
 	
-	public static final int LIGHT_STREAM_FREQ = 5;
-	public static final int LIGHT_PLAYOUT_FREQ = 10; //HZ
-	public static final int LIGHT_PLAYOUT_PERIOD = 100; //msec
-	public static final int LIGHT_PLAYOUT_HALF_PERIOD = 50; //msec
+	public static final int LIGHT_STREAM_FREQ = 10;
+	public static final int LIGHT_PLAYOUT_FREQ = 20; //HZ
+	public static final int LIGHT_PLAYOUT_PERIOD = 50; //msec
+	public static final int LIGHT_PLAYOUT_HALF_PERIOD = 25; //msec
 	
-	public static final int ORIENT_STREAM_FREQ = 5;
-	public static final int ORIENT_PLAYOUT_FREQ = 10; //HZ
-	public static final int ORIENT_PLAYOUT_PERIOD = 100; //msec
-	public static final int ORIENT_PLAYOUT_HALF_PERIOD = 50; //msec
+	public static final int ORIENT_STREAM_FREQ = 10;
+	public static final int ORIENT_PLAYOUT_FREQ = 20; //HZ
+	public static final int ORIENT_PLAYOUT_PERIOD = 50; //msec
+	public static final int ORIENT_PLAYOUT_HALF_PERIOD = 25; //msec
 	
-	public static final int GYRO_STREAM_FREQ = 5;
-	public static final int GYRO_PLAYOUT_FREQ = 10; //HZ
-	public static final int GYRO_PLAYOUT_PERIOD = 100; //msec
-	public static final int GYRO_PLAYOUT_HALF_PERIOD = 50; //msec
+	public static final int GYRO_STREAM_FREQ = 10;
+	public static final int GYRO_PLAYOUT_FREQ = 20; //HZ
+	public static final int GYRO_PLAYOUT_PERIOD = 50; //msec
+	public static final int GYRO_PLAYOUT_HALF_PERIOD = 25; //msec
 	
 	public static final int PLAYOUT_HOLD = 1;
 	public static final int PLAYOUT_VALID = 2;
