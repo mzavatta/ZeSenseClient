@@ -143,18 +143,22 @@ public class ZeSenseClient extends JFrame {
 	static int accelTotalNotifReceived = 0;
 	static int accelDataNotifReceived = 0;
 	static int accelDataBeforeTiming = 0;
+	static int accelRepeatedCount = 0;
 	
 	static int proxTotalNotifReceived = 0;
 	static int proxDataNotifReceived = 0;
 	static int proxDataBeforeTiming = 0;
+	static int proxRepeatedCount = 0;
 	
 	static int lightTotalNotifReceived = 0;
 	static int lightDataNotifReceived = 0;
 	static int lightDataBeforeTiming = 0;
+	static int lightRepeatedCount = 0;
 	
 	static int gyroTotalNotifReceived = 0;
 	static int gyroDataNotifReceived = 0;
 	static int gyroDataBeforeTiming = 0;
+	static int gyroRepeatedCount = 0;
 
 	public ZeSenseClient() {
 	    setTitle("ZeSenseClient");
@@ -242,6 +246,8 @@ public class ZeSenseClient extends JFrame {
 							 * ascii-encoded float values. */
 							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
+							recStream.registerDataArrival(pay.length);
+							
 							for (int k=0; k<nSamples; k++) {
 							//while (number of samples in the packet)
 								
@@ -262,7 +268,7 @@ public class ZeSenseClient extends JFrame {
 								offsetValue += (Registry.ACCEL_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.ACCEL_SAMPLE_LENGTH);
 								
-								recStream.registerSampleArrival(pay.length);
+								recStream.registerSampleArrival();
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -275,9 +281,16 @@ public class ZeSenseClient extends JFrame {
 								
 								if (recStream.timingReady) {
 									recStream.toWallclock(event);
-									accelPlayoutManager.add(event);
-									meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
-											accelPlayoutManager.size());
+									boolean succ = accelPlayoutManager.add(event);
+									if (succ)
+										meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
+												accelPlayoutManager.size());
+									else {
+										System.out.println("Accel sample already in buffer, "+
+														"not inserting.");
+										accelRepeatedCount++;
+									}
+
 								}
 								else {
 									System.out.println("Not sending to playout, timing still unknown.");
@@ -315,11 +328,11 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							if (recStream.timingReady == false) {
+							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							}
+							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
 						
@@ -414,6 +427,8 @@ public class ZeSenseClient extends JFrame {
 							
 							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
+							recStream.registerDataArrival(pay.length);
+							
 							for (int k=0; k<nSamples; k++) {
 								
 								int timestamp = dataStream.readInt();
@@ -428,7 +443,7 @@ public class ZeSenseClient extends JFrame {
 								offsetValue += (Registry.PROX_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.PROX_SAMPLE_LENGTH);
 								
-								recStream.registerSampleArrival(pay.length);
+								recStream.registerSampleArrival();
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -439,9 +454,16 @@ public class ZeSenseClient extends JFrame {
 								
 								if (recStream.timingReady) {
 									recStream.toWallclock(pevent);
-									proxPlayoutManager.add(pevent);
-									meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
-											proxPlayoutManager.size());
+									boolean succ = proxPlayoutManager.add(pevent);
+									if (succ)
+										meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
+												proxPlayoutManager.size());
+									else {
+										System.out.println("Prox sample already in buffer, "+
+														"not inserting.");
+										proxRepeatedCount++;
+									}
+
 								}
 								else {
 									proxDataBeforeTiming++;
@@ -477,13 +499,24 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							if (recStream.timingReady == false) {
+							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							}
+							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
+						
+						// if bandwidth threshold trigger receiver report
+						if (recStream.octectsReceived > recStream.octectsReceivedAtLastRR + Registry.RR_BANDWIDTH_THRESHOLD ) {
+							recStream.octectsReceivedAtLastRR = recStream.octectsReceived;
+
+							byte[] rrpay = new byte[Registry.PAYLOAD_RR_LENGTH];
+
+							sendRR(Registry.PROX_RESOURCE_PATH, rrpay);
+							proxRRSent++;
+						}
+						
 					} //valid response
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -560,6 +593,8 @@ public class ZeSenseClient extends JFrame {
 							
 							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
+							recStream.registerDataArrival(pay.length);
+							
 							for (int k=0; k<nSamples; k++) {
 								
 								int timestamp = dataStream.readInt();
@@ -574,7 +609,7 @@ public class ZeSenseClient extends JFrame {
 								offsetValue += (Registry.LIGHT_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.LIGHT_SAMPLE_LENGTH);
 								
-								recStream.registerSampleArrival(pay.length);
+								recStream.registerSampleArrival();
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -585,9 +620,15 @@ public class ZeSenseClient extends JFrame {
 								
 								if (recStream.timingReady) {
 									recStream.toWallclock(pevent);
-									lightPlayoutManager.add(pevent);
-									meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
-											lightPlayoutManager.size());
+									boolean succ = lightPlayoutManager.add(pevent);
+									if (succ)
+										meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
+												lightPlayoutManager.size());
+									else {
+										System.out.println("Light sample already in buffer, "+
+														"not inserting.");
+										lightRepeatedCount++;
+									}
 								}
 								else {
 									lightDataBeforeTiming++;
@@ -622,13 +663,24 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							if (recStream.timingReady == false) {
+							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							}
+							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
+						
+						// if bandwidth threshold trigger receiver report
+						if (recStream.octectsReceived > recStream.octectsReceivedAtLastRR + Registry.RR_BANDWIDTH_THRESHOLD ) {
+							recStream.octectsReceivedAtLastRR = recStream.octectsReceived;
+
+							byte[] rrpay = new byte[Registry.PAYLOAD_RR_LENGTH];
+
+							sendRR(Registry.LIGHT_RESOURCE_PATH, rrpay);
+							lightRRSent++;
+						}
+						
 					} //valid response
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -703,6 +755,8 @@ public class ZeSenseClient extends JFrame {
 							
 							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
+							recStream.registerDataArrival(pay.length);
+							
 							for (int k=0; k<nSamples; k++) {
 							
 								int timestamp = dataStream.readInt();
@@ -722,7 +776,7 @@ public class ZeSenseClient extends JFrame {
 								offsetValue += (Registry.ORIENT_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.ORIENT_SAMPLE_LENGTH);
 								
-								recStream.registerSampleArrival(pay.length);
+								recStream.registerSampleArrival();
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -768,13 +822,24 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							if (recStream.timingReady == false) {
+							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							}
+							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
+						
+						// if bandwidth threshold trigger receiver report
+						if (recStream.octectsReceived > recStream.octectsReceivedAtLastRR + Registry.RR_BANDWIDTH_THRESHOLD ) {
+							recStream.octectsReceivedAtLastRR = recStream.octectsReceived;
+
+							byte[] rrpay = new byte[Registry.PAYLOAD_RR_LENGTH];
+
+							sendRR(Registry.ORIENT_RESOURCE_PATH, rrpay);
+							orientRRSent++;
+						}
+						
 					} //valid response
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -851,6 +916,8 @@ public class ZeSenseClient extends JFrame {
 							
 							int offsetValue = Registry.PAYLOAD_HDR_LENGTH + Registry.RTPTS_LENGTH;
 							
+							recStream.registerDataArrival(pay.length);
+							
 							for (int k=0; k<nSamples; k++) {
 							
 								int timestamp = dataStream.readInt();
@@ -870,7 +937,7 @@ public class ZeSenseClient extends JFrame {
 								offsetValue += (Registry.GYRO_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.GYRO_SAMPLE_LENGTH);
 								
-								recStream.registerSampleArrival(pay.length);
+								recStream.registerSampleArrival();
 								
 								System.out.println("packet:"+packetType+
 										" sensor:"+sensorType+
@@ -883,9 +950,15 @@ public class ZeSenseClient extends JFrame {
 								
 								if (recStream.timingReady) {
 									recStream.toWallclock(event);
-									gyroPlayoutManager.add(event);
-									meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
-											gyroPlayoutManager.size());
+									boolean succ = gyroPlayoutManager.add(event);
+									if (succ)
+										meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
+													gyroPlayoutManager.size());
+									else {
+										System.out.println("Gyro sample already in buffer, "+
+														"not inserting.");
+										gyroRepeatedCount++;
+									}
 								}
 								else {
 									gyroDataBeforeTiming++;
@@ -921,13 +994,24 @@ public class ZeSenseClient extends JFrame {
 								masterPlayoutManager.mpo = System.nanoTime() + blindDelay - ntpts;
 							}*/
 							
-							if (recStream.timingReady == false) {
+							//if (recStream.timingReady == false) {
 								recStream.updateTiming(rtpts, ntpts);
 								recStream.octectCount = octectCount;
 								recStream.packetCount = packetCount;
-							}
+							//}
 						} //sender report
 						else System.out.println("Unknown payload format, drop.");
+						
+						// if bandwidth threshold trigger receiver report
+						if (recStream.octectsReceived > recStream.octectsReceivedAtLastRR + Registry.RR_BANDWIDTH_THRESHOLD ) {
+							recStream.octectsReceivedAtLastRR = recStream.octectsReceived;
+
+							byte[] rrpay = new byte[Registry.PAYLOAD_RR_LENGTH];
+
+							sendRR(Registry.GYRO_RESOURCE_PATH, rrpay);
+							gyroRRSent++;
+						}
+						
 					} //valid response
 				} catch (InterruptedException e) {
 					e.printStackTrace();
@@ -1128,7 +1212,8 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("--- Accelerometer");
 		System.out.println("Total notifications received:"+accelTotalNotifReceived);
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
-		System.out.println("Samples received:"+accelStream.samplesReceived); //for the moment
+		System.out.println("Samples received (repetitions included):"+accelStream.samplesReceived); //for the moment
+		System.out.println("Samples repeated:"+accelRepeatedCount);
 		System.out.println("Sender reports received:"+accelSRRec);
 		System.out.println("Receiver reports sent:"+accelRRSent);
 		System.out.println("Data notifs arrived before timing:"+accelDataBeforeTiming);
@@ -1139,7 +1224,8 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("--- Proximity");
 		System.out.println("Total notifications received:"+proxTotalNotifReceived);
 		System.out.println("Data notifications received:"+proxDataNotifReceived);
-		System.out.println("Samples received:"+proxStream.samplesReceived); //for the moment
+		System.out.println("Samples received (repetitions included):"+proxStream.samplesReceived); //for the moment
+		System.out.println("Samples repeated:"+proxRepeatedCount);
 		System.out.println("Sender reports received:"+proxSRRec);
 		System.out.println("Receiver reports sent:"+proxRRSent);
 		System.out.println("Data notifs arrived before timing:"+proxDataBeforeTiming);
@@ -1150,7 +1236,8 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("--- Gyroscope");
 		System.out.println("Total notifications received:"+gyroTotalNotifReceived);
 		System.out.println("Data notifications received:"+gyroDataNotifReceived);
-		System.out.println("Samples received:"+gyroStream.samplesReceived); //for the moment
+		System.out.println("Samples received (repetitions included):"+gyroStream.samplesReceived); //for the moment
+		System.out.println("Samples repeated:"+gyroRepeatedCount);
 		System.out.println("Sender reports received:"+gyroSRRec);
 		System.out.println("Receiver reports sent:"+gyroRRSent);
 		System.out.println("Data notifs arrived before timing:"+gyroDataBeforeTiming);
@@ -1161,7 +1248,8 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("--- Light");
 		System.out.println("Total notifications received:"+lightTotalNotifReceived);
 		System.out.println("Data notifications received:"+lightDataNotifReceived);
-		System.out.println("Samples received:"+lightStream.samplesReceived); //for the moment
+		System.out.println("Samples received (repetitions included):"+lightStream.samplesReceived); //for the moment
+		System.out.println("Samples repeated:"+lightRepeatedCount);
 		System.out.println("Sender reports received:"+lightSRRec);
 		System.out.println("Receiver reports sent:"+lightRRSent);
 		System.out.println("Data notifs arrived before timing:"+lightDataBeforeTiming);

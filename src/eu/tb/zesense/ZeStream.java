@@ -60,9 +60,22 @@ public class ZeStream {
 	}
 	
 	// Total payload length received and sequence number
-	public void registerSampleArrival(int length) {
-		octectsReceived+=length;
+	public void registerSampleArrival() {
+		//octectsReceived+=length;
 		samplesReceived++;
+		/*
+		if (maxSeqNumber==-1) { //first packet ever received
+			maxSeqNumber = sequenceNumber;
+		}
+		else {
+			if (sequenceNumber < maxSeqNumber) //out of order
+				oooCount++;
+		}
+		*/
+	}
+	
+	public void registerDataArrival(int length) {
+		octectsReceived+=length;
 		/*
 		if (maxSeqNumber==-1) { //first packet ever received
 			maxSeqNumber = sequenceNumber;

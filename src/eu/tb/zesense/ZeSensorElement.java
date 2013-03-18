@@ -1,6 +1,6 @@
 package eu.tb.zesense;
 
-public class ZeSensorElement implements Comparable<ZeSensorElement>  {
+public class ZeSensorElement implements Comparable<ZeSensorElement> {
 	
 	/* Sensor identifier. */
 	int sensorId;
@@ -32,4 +32,5 @@ public class ZeSensorElement implements Comparable<ZeSensorElement>  {
 		else if (this.timestamp > o.timestamp) return +1;
 		return 0;
 	}
+	
 }
