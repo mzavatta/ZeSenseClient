@@ -6,32 +6,24 @@ package eu.tb.zesense;
 *
 */
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
-import java.awt.Paint;
 
 import javax.swing.JPanel;
-import javax.swing.JSlider;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.DialShape;
 import org.jfree.chart.plot.MeterInterval;
 import org.jfree.chart.plot.MeterPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.Range;
 import org.jfree.data.general.DefaultValueDataset;
 import org.jfree.data.general.ValueDataset;
-import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.ui.ApplicationFrame;
-import org.jfree.ui.RefineryUtilities;
 
 /**
 * A simple demonstration application showing how to create a meter chart.
@@ -70,7 +62,7 @@ public class ZeMeters extends ApplicationFrame {
         super(title);		
         JPanel chartPanel = createDemoPanel();
         //chartPanel.setMaximumSize(new Dimension(100,100));
-        chartPanel.setPreferredSize(new Dimension(700, 570));
+        chartPanel.setPreferredSize(new Dimension(650, 650));
         setContentPane(chartPanel);
     }
     
@@ -174,13 +166,13 @@ public class ZeMeters extends ApplicationFrame {
         panel.add(new ChartPanel(accelChart));
         panel.add(new ChartPanel(proxChart));
         panel.add(new ChartPanel(lightChart));
-        panel.add(new ChartPanel(orientChart));
+        //panel.add(new ChartPanel(orientChart));
         panel.add(new ChartPanel(gyroChart));
         //panel.add(new ChartPanel(locationChart));
         panel.add(new ChartPanel(accelBufferChart));
         panel.add(new ChartPanel(proxBufferChart));
         panel.add(new ChartPanel(lightBufferChart));
-        panel.add(new ChartPanel(orientBufferChart));
+        //panel.add(new ChartPanel(orientBufferChart));
         panel.add(new ChartPanel(gyroBufferChart));
         //panel.add(BorderLayout.SOUTH, slider);
         return panel;

@@ -60,17 +60,14 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Date;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 import javax.swing.JButton;
@@ -92,12 +89,12 @@ import ch.ethz.inf.vs.californium.coap.registries.OptionNumberRegistry;
 import ch.ethz.inf.vs.californium.util.Log;
 
 
-
 public class ZeSenseClient extends JFrame {
 
-	//long mpo; //master playout dynamic offset
-	//calculated as the offset from the common sender
-	//time and the playout time of that instant in common time
+	/* master playout dynamic offset calculated as the offset
+	 * from the common sender time and the playout time of
+	 * that instant in common time
+	 */
 	
 	ZeMeters meters;
 	ZeMasterPlayoutManager masterPlayoutManager;
@@ -282,9 +279,15 @@ public class ZeSenseClient extends JFrame {
 								if (recStream.timingReady) {
 									recStream.toWallclock(event);
 									boolean succ = accelPlayoutManager.add(event);
-									if (succ)
-										meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
-												accelPlayoutManager.size());
+									if (succ) {
+										/* This operation seems to give a race condition with its
+										 * symmetrical one in ZeAccelDisplayDevice. For the moment
+										 * only update the buffer chart in ZeAccelDisplayDevice. The
+										 * chart stays enough good.
+										 */
+										//meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
+										//		accelPlayoutManager.size());
+									}
 									else {
 										System.out.println("Accel sample already in buffer, "+
 														"not inserting.");
@@ -1025,7 +1028,7 @@ public class ZeSenseClient extends JFrame {
 	
 	public class TestThread extends Thread {
 		
-		/* Used to catch the (only) message that arrives on the test socket.
+		/* Used to catch the (unique) message that arrives on the test socket.
 		 * It will be a sender report and it is going to have, in our
 		 * simulated environment, exactly the average network delay. */
 		
@@ -1077,6 +1080,7 @@ public class ZeSenseClient extends JFrame {
 		//Lock lock = new ReentrantLock();
 		//globalExit = lock.newCondition();
 		
+		//quit button panel
 		JPanel panel = new JPanel();
 		getContentPane().add(panel);
 		panel.setLayout(null);
@@ -1091,6 +1095,7 @@ public class ZeSenseClient extends JFrame {
 		panel.add(quitButton);
 		setVisible(true);
 		
+		//meters panel
 		meters = new ZeMeters("ZeSense Monitors Panel");
 	    meters.pack();
 	    RefineryUtilities.centerFrameOnScreen(meters);
@@ -1114,6 +1119,7 @@ public class ZeSenseClient extends JFrame {
 		TestThread testThread = new TestThread();
 		testThread.start();
 		
+		/*
 		ZeProxRecThread proxThread = new ZeProxRecThread();
 		proxThread.start();
 		try {
@@ -1121,8 +1127,9 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
+		*/
 		
-		
+		/*
 		ZeLightRecThread lightThread = new ZeLightRecThread();
 		lightThread.start();
 		try {
@@ -1130,8 +1137,8 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
+		*/
 	
-
 		ZeAccelRecThread accelThread = new ZeAccelRecThread();
 		accelThread.start();
 		try {
@@ -1140,7 +1147,12 @@ public class ZeSenseClient extends JFrame {
 			e2.printStackTrace();
 		}
 		
-/*
+		/*
+		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
+		gyroThread.start();
+		*/
+		
+		/*
 		ZeOrientRecThread orientThread = new ZeOrientRecThread();
 		orientThread.start();
 		try {
@@ -1148,38 +1160,7 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
-*/
-		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
-		gyroThread.start();
-
-		
-		/*try {
-			Thread.sleep(3000);
-		} catch (InterruptedException e2) {
-			e2.printStackTrace();
-		}
-		URI uri = null;
-		byte[] payload = null;
-		try {
-			uri = new URI(Registry.HOST+Registry.ACCEL_RESOURCE_PATH);
-		} catch (URISyntaxException e1) {
-			e1.printStackTrace();
-		}
-		Request oneRequest = new GETRequest();
-		oneRequest.setURI(uri);
-		oneRequest.setPayload(payload);
-		oneRequest.setToken( TokenManager.getInstance().acquireToken() );
-		oneRequest.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		oneRequest.prettyPrint();
-		try {
-			oneRequest.execute();
-		} catch (UnknownHostException e) {
-			System.err.println("Unknown host: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		} catch (IOException e) {
-			System.err.println("Failed to execute request: " + e.getMessage());
-			System.exit(Registry.ERR_REQUEST_FAILED);
-		}*/
+ 		*/
 		
 		
 		while (loop) {
@@ -1192,7 +1173,6 @@ public class ZeSenseClient extends JFrame {
 		
 		/*
 		System.out.println("Joining..");
-		
 		try {
 			accelThread.join();
 			proxThread.join();
@@ -1201,7 +1181,8 @@ public class ZeSenseClient extends JFrame {
 			gyroThread.join();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
-		}*/
+		}
+		*/
 		 
 		/*
 		 * For the moment consider only Req/Res level statistics
@@ -1257,13 +1238,7 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
 		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
 		System.out.println("---");
-
-
-
-		//System.out.println();
 	}
-	
-	
 	
 	// payload given null if no payload applies
 	public Request sendRR(String resourcePath, byte[] payload) {
@@ -1280,7 +1255,7 @@ public class ZeSenseClient extends JFrame {
 		request.setPayload(payload);
 		request.setToken( TokenManager.getInstance().acquireToken() );
 		request.setContentType(MediaTypeRegistry.TEXT_PLAIN);
-		// enable response queue in order to use blocking I/O
+		//enable response queue in order to use blocking I/O
 		//request.enableResponseQueue(true);	
 		request.prettyPrint();
 
@@ -1310,13 +1285,11 @@ public class ZeSenseClient extends JFrame {
 	
 	synchronized ZeStream findStream(ArrayList<ZeStream> list, byte[] token, String resource) {
 		for (ZeStream s : list) {
-			//System.out.println("Iter");
 		    if (Arrays.equals(s.token, token) && s.resource.equals(resource))
 		    	return s;
 		}
 		return null;
 	}
-	
 	
 	public Request prepareObserveRequest(String resourcePath) {
 		String method = "OBSERVE";

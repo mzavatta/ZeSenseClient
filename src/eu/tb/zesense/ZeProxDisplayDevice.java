@@ -36,17 +36,11 @@ public class ZeProxDisplayDevice extends Thread {
 					meter.proxPlot.setNeedlePaint(Color.GREEN);
 			}
 			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-
-				//meter.proxDataset.setValue(new Float(0));
 				meter.proxPlot.setNeedlePaint(Color.GRAY);
 			}
 			else {
-
+				//playout hold, don't change what's being displayed
 			}
-				//meter.proxDataset.setValue(new Float(0)); //invalid and buffer underflow result
-				//in the same effect for the user but streamwise they are not the same
-				//thing
-				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
 				
 			try {
 				Thread.sleep(Registry.PROX_PLAYOUT_PERIOD);

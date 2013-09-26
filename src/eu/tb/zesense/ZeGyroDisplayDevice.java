@@ -8,8 +8,6 @@ public class ZeGyroDisplayDevice extends Thread {
 	
 	ZeMeters meter;
 	
-	float a = 5;
-	
 	ZeGyroElement elem;
 
 	@Override
@@ -38,36 +36,12 @@ public class ZeGyroDisplayDevice extends Thread {
 					meter.gyroPlot.setNeedlePaint(Color.GREEN);
 			}
 			else if (elem.meaning == Registry.PLAYOUT_INVALID) {
-				//meter.gyroDataset.setValue(new Float(0));
 				meter.gyroPlot.setNeedlePaint(Color.GRAY);
 			}
-			// else playout hold, don't change what's being displayeds
 			else {
-				//
+				//playout hold, don't change what's being displayed
 			}
 				
-				//meter.gyroDataset.setValue(new Float(0)); //invalid and buffer underflow result
-				//in the same effect for the user but streamwise they are not the same
-				//thing
-				//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-	    	
-			/*
-	    	int ret = playoutManager.get(elem);
-			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,
-					playoutManager.size());
-		    if (ret == Registry.PLAYOUT_VALID) {
-		    		meter.accelDataset.setValue(new Float(elem.z));
-		    }
-		    else if (ret == Registry.PLAYOUT_INVALID) {
-		    		meter.accelDataset.setValue(new Float(0));
-		    }*/
-		    /*
-	    	else {
-	    		meter.accelDataset.setValue(new Float(0)); //invalid and buffer underflow result
-	    		//in the same effect for the user but streamwise they are not the same
-	    		//thing
-	    		//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-	    	}*/
 	    	
 			try {
 				Thread.sleep(Registry.GYRO_PLAYOUT_PERIOD);

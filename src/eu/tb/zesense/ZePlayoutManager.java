@@ -4,8 +4,7 @@ import java.util.TreeSet;
 
 public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	
-	/*
-	 * Does not make sense to have stream-specific data
+	/* Does not make sense to have stream-specific data
 	 * here.
 	 */
 	
@@ -15,86 +14,113 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	int playoutPer;// = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
 	int playoutHalfPer;// = Registry.ACCEL_PLAYOUT_HALF_PERIOD * 1000000;
 	long playoutFirstTime;
-	int playoutTicks=0;
-	int incominSampleFreq;
-	
+	int playoutTicks;
 	
 	/* Internal non-functional stats. */
-	int holdcount = 0;
-	int underflowCount  = 0;
-	/* Only count stuff that I have, not that I don't have.
-	 * Stuff that I don't have we take it by subtraction
-	 * with the total.
-	 */
-	int skipped = 0;
-	int played = 0;
+	int holdcount;
+	int underflowCount;
 	
+	/* Only count stuff that I have, not that I don't have.
+	 * Stuff that I don't have we take it by subtraction with the total. */
+	int skipped;
+	int played;
+	
+	/* Holds the last played sample. Starts off as null. Once any sample has played,
+	 * it never turns null again, so it also indicates if playout has started. */
 	E current;
 	
 	ZeMasterPlayoutManager master;
 	
 	ZeStream sourceStream;
-
 	
 	public ZePlayoutManager() {
 		super();
+		playoutTicks = 0;
+		holdcount = 0;
+		underflowCount = 0;
+		skipped = 0;
+		played = 0;
+		current = null;
 	}
 	
 	
 	public synchronized ZePlayoutElement<E> get() {
 		
+		/* sample current absolute time. */
 		long now = playoutToSystem();
+		long leftInterval = now-playoutHalfPer;
+		long rightInterval = now+playoutHalfPer;
+
+		/* sample it once from the master and use
+		 * the same value for the whole playout request
+		 * to avoid inconsistencies (mpo can be changed by
+		 * the master at any time)
+		 */
+		long mpo = master.mpo;
+		
+		//System.out.println(Long.toString(mpo+first().wallclock)+
+		//		" interval:"+Long.toString(leftInterval)+":"+Long.toString(rightInterval));
 		
 		while ( !isEmpty() ) {
-			System.out.println(Long.toString(master.mpo+first().wallclock)+" interval:"+Long.toString(now-playoutHalfPer)+":"+Long.toString(now+playoutHalfPer));
-			if ((first().wallclock+master.mpo) < (now-playoutHalfPer)) {
+			if ((first().wallclock+mpo) < leftInterval) {
 				E s = pollFirst();
-				System.out.println("Late skipped "+s.sensorId);
+				System.out.println(Long.toString(mpo+s.wallclock)+
+						" interval:"+Long.toString(leftInterval)+":"+Long.toString(rightInterval)+" -> "+
+						"late skipped from sensor "+s.sensorId);
 				skipped++;
 			}
-			else if ( (first().wallclock+master.mpo) >= (now-playoutHalfPer) && 
-					(first().wallclock+master.mpo) <= (now+playoutHalfPer) ) {
-				//System.out.println("Giving data");
+			else if ( (first().wallclock+mpo) >= leftInterval && 
+					(first().wallclock+mpo) <= rightInterval ) {
 				resetHoldCount();
-				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				current = pollFirst();
+				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = current;
 				elem.meaning = Registry.PLAYOUT_VALID;
+				System.out.println(Long.toString(mpo+current.wallclock)+
+						" interval:"+Long.toString(leftInterval)+":"+Long.toString(rightInterval)+" -> "+
+						"played from sensor "+current.sensorId);
 				played++;
 				return elem;
 			}
-			else {
-				if (current != null) { //not in the first interrupt requests
-					if (now < current.expiry+master.mpo) { //current not expired
-						// give hold
+			else { //samples to be played in the future is at queue head
+				if (current != null) { //playout started
+					if (now < current.expiry+mpo) { //current not expired
+						//current still valid: hold it
 						holdcount++;
-						//System.out.println("Giving hold and buffer still full");
 						ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 						elem.element = null;
 						elem.meaning = Registry.PLAYOUT_HOLD;
 						return elem;
+					} else {
+						resetHoldCount();
+						ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+						elem.element = null;
+						elem.meaning = Registry.PLAYOUT_INVALID;
+						return elem;
 					}
-				}
+				} else {
 				//System.out.println("Giving invalidate");
-				resetHoldCount();
-				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
-				elem.element = null;
-				elem.meaning = Registry.PLAYOUT_INVALID;
-				return elem;
+					resetHoldCount();
+					ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
+					elem.element = null;
+					elem.meaning = Registry.PLAYOUT_INVALID;
+					return elem;
+				}
 			}
 		}
-		if (current != null) { //not in the first interrupt requests
-			if (now < current.expiry+master.mpo) { //current not expired
-				// give hold
+		
+		//nothing found in the queue
+		if (current != null) { //playout started
+			if (now < current.expiry+mpo) { //current not expired
+				//found empty but current still valid: holding
 				holdcount++;
-				//System.out.println("Found empty but holding");
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = null;
 				elem.meaning = Registry.PLAYOUT_HOLD;
 				return elem;
 			}
 			else {
-				//System.out.println("Found empty and current expired: underflow");
+				//found empty and current expired: underflow
 				underflowCount++;
 				ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 				elem.element = null;
@@ -102,11 +128,11 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 				return elem;
 			}
 		}
-		//System.out.println("Found empty but playout not yet started");
+		//Found empty but playout not yet started
 		ZePlayoutElement<E> elem = new ZePlayoutElement<E>();
 		elem.element = null;
 		elem.meaning = Registry.PLAYOUT_NOTSTARTED;
-		return elem; //buffer found empty
+		return elem;		
 	}
 	
 	void resetHoldCount() {
@@ -114,105 +140,32 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		//System.out.println("Holdcount reset at "+holdcount);
 	}
 		
-	
+	//In order to synchronize the superclass' add method
 	public synchronized boolean add(E elem) {
 		return super.add(elem);
 	}
 	
-	
-
-	/* Working version ------------------------------------
-	public synchronized ZeSensorElement get() {
-		
-		System.out.println("Get, now size is "+Integer.toString(size()));
-		//ZeSensorElement element = null;
-		
-		long now = System.nanoTime();
-
-		while ( !isEmpty() ) {
-			System.out.println(Long.toString(master.mpo+first().wallclock)+" interval:"+Long.toString(now-playoutHalfPer)+":"+Long.toString(now+playoutHalfPer));
-			if ((first().wallclock+master.mpo) < (now-playoutHalfPer)) {
-				pollFirst();
-				System.out.println("Skip!");
-			}
-			else if ( (first().wallclock+master.mpo) >= (now-playoutHalfPer) && 
-							(first().wallclock+master.mpo) <= (now+playoutHalfPer) ) {
-				System.out.println("Giving data");
-				return pollFirst();
-			}
-			else {
-				System.out.println("Giving invalidate");
-				ZeAccelElement silence = new ZeAccelElement();
-				silence.meaning = Registry.PLAYOUT_HOLD; //actually 1 means hold
-				return silence;
-			}
-			//
-			 // later here I should give hold if I have a future sample in the buffer
-			 // but the current one is still valid at now time
-			 // (because for example the playout freq is greater than the
-			 // sample freq)
-			 //
-		}
-		System.out.println("Buffer underflow");
-		ZeAccelElement empty = new ZeAccelElement();
-		empty.meaning = Registry.PLAYOUT_BUFFER_EMPTY;
-		return empty;
-	} ------------------------------------------------------*/
-	
-	
+	/*
+	 * we could sample the system time at every iteration
+	 * but it would result in always different periods
+	 * imperfect to be divided in half by the constant playoutHalfPer
+	 * increase of fixed periods from a base system time
+	 * adjust to the correct system time every x periods
+	 */
+	/* MIRROR CHANGES IN ZeDumbPlayoutManager!! */
 	long playoutToSystem() {
+		System.out.println("Inside playoutToSystem, playoutTicks:"+Integer.toString(playoutTicks));
+		int ticksWrap = playoutTicks % 10;
 		playoutTicks++;
-		if ((playoutTicks%10) == 1) {	//first playout interrupt request
-			playoutTicks=0;
+		if ( true /*ticksWrap == 0*/) { //first call or every ten calls
+			//playoutTicks=1;
+			System.out.println("tickswrap = 0, adjusting");
 			playoutFirstTime = System.nanoTime();
 			return playoutFirstTime;
 		}
 		long freqFactor = Registry.WALLCLOCK_FREQ / playoutFreq;
-		return playoutFirstTime+(freqFactor*(playoutTicks-1));
+		System.out.println("ticksWrap:"+Integer.toString(ticksWrap)+" playoutTicks:"+Integer.toString(playoutTicks));
+		return playoutFirstTime+(freqFactor*ticksWrap);
 	}
-	/*
-	try {
-		 element = first();
-	} catch (Exception e) {
-		
-	}
-	
-	System.out.println(Long.toString(master.mpo+element.wallclock)+" interval:"+Long.toString(now-playoutHalfPer)+":"+Long.toString(now+playoutHalfPer));
 
-	if ((element.wallclock+master.mpo) >= (now-playoutHalfPer) && 
-			(element.wallclock+master.mpo) <= (now+playoutHalfPer)) {
-		System.out.println("Giving data");
-		return pollFirst();
-	}
-	else if ( (element.wallclock+master.mpo) < (now-playoutHalfPer) ) {
-		pollFirst();
-		element = first();
-		while ( (element.wallclock+master.mpo) < (now-playoutHalfPer) ) {
-			pollFirst();
-			element = first();
-		}
-		if ((element.wallclock+master.mpo) >= (now-playoutHalfPer) && 
-				(element.wallclock+master.mpo) <= (now+playoutHalfPer)) {
-			System.out.println("Giving data");
-			return pollFirst();
-		}
-	}
-System.out.println("Giving invalidate");
-ZeAccelElement silence = new ZeAccelElement();
-silence.meaning = 1;
-return silence;
-*/
-	
-	//get
-	//guarda common + dynamic offset del primo
-	//se è il momento giusto i.e. now = common + dynamic offset return il campione
-	//se quel campione è vecchio (common + dynamic offset)<now scartalo e guarda quello dopo
-	//se quel campione verrà mostrato in futuro, return silence
-	//(il buffer è ordinato)
-	
-	
-	//strict equality is too extreme, perfectly matching values are very unlikely
-	//do an interval
-	//common + dynamic offset within [now-tau, now+tau]
-	//dove tau = 1/playoutFreq
 }

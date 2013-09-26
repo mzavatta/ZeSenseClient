@@ -8,11 +8,8 @@ public class ZeLightDisplayDevice extends Thread {
 	
 	ZeMeters meter;
 	
-	float a = 5;
-	
 	ZeLightElement elem;
 	
-
 	@Override
 	public void run() {
 		
@@ -43,33 +40,9 @@ public class ZeLightDisplayDevice extends Thread {
 				//meter.lightDataset.setValue(new Float(0));
 				meter.lightPlot.setNeedlePaint(Color.GRAY);
 			}
-			// else playout hold, don't change what's being displayeds
 			else {
-				//
+				//playout hold, don't change what's being displayed
 			}
-			
-			//meter.lightDataset.setValue(new Float(0)); //invalid and buffer underflow result
-			//in the same effect for the user but streamwise they are not the same
-			//thing
-			//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-			
-			/*
-	    	int ret = playoutManager.get(elem);
-			meter.accelBufferSeries.add(meter.accelBufferSeries.getItemCount()+1,
-					playoutManager.size());
-		    if (ret == Registry.PLAYOUT_VALID) {
-		    		meter.accelDataset.setValue(new Float(elem.z));
-		    }
-		    else if (ret == Registry.PLAYOUT_INVALID) {
-		    		meter.accelDataset.setValue(new Float(0));
-		    }*/
-		    /*
-	    	else {
-	    		meter.accelDataset.setValue(new Float(0)); //invalid and buffer underflow result
-	    		//in the same effect for the user but streamwise they are not the same
-	    		//thing
-	    		//meter.accelUnderflowSeries.add(meter.accelUnderflowSeries.getItemCount()+1, count);
-	    	}*/
 	    	
 			try {
 				Thread.sleep(Registry.LIGHT_PLAYOUT_PERIOD);

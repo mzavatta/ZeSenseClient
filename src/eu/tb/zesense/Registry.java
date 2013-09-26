@@ -19,12 +19,12 @@ public class Registry {
 	public static final int ERR_RESPONSE_FAILED = 6;
 	public static final int ERR_BAD_LINK_FORMAT = 7;
 	
-	public static final int DATAPOINT	= 1;
-	public static final int SENDREPORT	= 2;
-	public static final int RECREPORT	= 3;
+	public static final int DATAPOINT	 = 1;
+	public static final int SENDREPORT = 2;
+	public static final int RECREPORT	 = 3;
 	
 	
-	public static final int BLIND_DELAY = 225000000; //200ms
+	public static final int BLIND_DELAY = /* 225000000 */ 0;
 
 	
 	/* <source>/hardware/libhardware/include/hardware/sensors.h */
@@ -34,7 +34,7 @@ public class Registry {
 	public static final int SENSOR_TYPE_GYROSCOPE			= 4;
 	public static final int SENSOR_TYPE_LIGHT				= 5;
 	public static final int SENSOR_TYPE_PRESSURE				= 6;
-	public static final int SENSOR_TYPE_TEMPERATURE			= 7;  // deprecated
+	public static final int SENSOR_TYPE_TEMPERATURE			= 7;  //deprecated
 	public static final int SENSOR_TYPE_PROXIMITY			= 8;
 	public static final int SENSOR_TYPE_GRAVITY				= 9;
 	public static final int SENSOR_TYPE_LINEAR_ACCELERATION	= 10;
