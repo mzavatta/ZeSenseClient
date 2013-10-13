@@ -25,6 +25,9 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	int skipped;
 	int played;
 	
+	/* Count duplicates that arrived before their original but anyway arrived late. */
+	int duplicatesSkipped;
+	
 	/* Holds the last played sample. Starts off as null. Once any sample has played,
 	 * it never turns null again, so it also indicates if playout has started. */
 	E current;
@@ -40,6 +43,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		underflowCount = 0;
 		skipped = 0;
 		played = 0;
+		duplicatesSkipped = 0;
 		current = null;
 	}
 	
@@ -68,6 +72,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 						" interval:"+Long.toString(leftInterval)+":"+Long.toString(rightInterval)+" -> "+
 						"late skipped from sensor "+s.sensorId);
 				skipped++;
+				if (s.duplicate) duplicatesSkipped++;
 			}
 			else if ( (first().wallclock+mpo) >= leftInterval && 
 					(first().wallclock+mpo) <= rightInterval ) {

@@ -141,6 +141,12 @@ public class ZeSenseClient extends JFrame {
 	static int accelDataNotifReceived = 0;
 	static int accelDataBeforeTiming = 0;
 	static int accelRepeatedCount = 0;
+	static int accelRetransmittedPacketCount = 0;
+	//retransmitted packets that arrive before their original (those that arrive after their original
+	//are filtered by californium)
+	static int accelDuplicateBufferedSample = 0; //duplicates that arrived before their originals
+	/* this minus duplicates discarded by the buffer
+	(so those that are late) = useful duplicates */
 	
 	static int proxTotalNotifReceived = 0;
 	static int proxDataNotifReceived = 0;
@@ -156,6 +162,8 @@ public class ZeSenseClient extends JFrame {
 	static int gyroDataNotifReceived = 0;
 	static int gyroDataBeforeTiming = 0;
 	static int gyroRepeatedCount = 0;
+	
+	static int rtCount = 0;
 
 	public ZeSenseClient() {
 	    setTitle("ZeSenseClient");
@@ -225,9 +233,16 @@ public class ZeSenseClient extends JFrame {
 						
 						accelTotalNotifReceived++;
 						
-						if (packetType == Registry.DATAPOINT) {
+						if (packetType == Registry.DATAPOINT ||
+								packetType == Registry.RETRANSMISSION) {
 							
 							accelDataNotifReceived++;
+							
+							if (packetType == Registry.RETRANSMISSION) {
+								accelRetransmittedPacketCount++;
+								System.out.println("Got Retransmitted Packet MID:"+
+								Integer.toString(response.getMID()));
+							}
 							
 							/*
 							 * number of samples in the data packet:
@@ -262,6 +277,13 @@ public class ZeSenseClient extends JFrame {
 								event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
 								//event.meaning = Registry.PLAYOUT_VALID;
 								
+								/* mark if this sample is a second or more attempt by the server
+								 * i.e. a duplicate */
+								if (packetType == Registry.RETRANSMISSION ||
+										(k==0 && Registry.REPETITION_ENABLED) )
+									event.duplicate = true;
+								else event.duplicate = false;
+								
 								offsetValue += (Registry.ACCEL_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.ACCEL_SAMPLE_LENGTH);
 								
@@ -287,6 +309,12 @@ public class ZeSenseClient extends JFrame {
 										 */
 										//meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
 										//		accelPlayoutManager.size());
+										
+										/* increase counter if a duplicate has arrived
+										 * before its original.
+										 */
+										if (event.duplicate)
+											accelDuplicateBufferedSample++;
 									}
 									else {
 										System.out.println("Accel sample already in buffer, "+
@@ -1193,7 +1221,9 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("--- Accelerometer");
 		System.out.println("Total notifications received:"+accelTotalNotifReceived);
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
-		System.out.println("Samples received (repetitions included):"+accelStream.samplesReceived); //for the moment
+		System.out.println("of which are retransmissions arrived before the original:"+accelRetransmittedPacketCount);
+		System.out.println("Samples received (repeated included):"+accelStream.samplesReceived); //for the moment
+		System.out.println("of which were duplicates arrived before original:"+accelDuplicateBufferedSample);
 		System.out.println("Samples repeated:"+accelRepeatedCount);
 		System.out.println("Sender reports received:"+accelSRRec);
 		System.out.println("Receiver reports sent:"+accelRRSent);

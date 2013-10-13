@@ -20,6 +20,8 @@ public class ZeDumbPlayoutManager<E extends ZeSensorElement> extends ConcurrentL
 	 * Stuff that I don't have we take it by subtraction with the total. */
 	int skipped;
 	int played;
+	int playedLate;
+	int playedEarly;
 	
 	/* Holds the last played sample. Starts off as null. Once any sample has played,
 	 * it never turns null again, so it also indicates if playout has started. */
@@ -78,6 +80,9 @@ public class ZeDumbPlayoutManager<E extends ZeSensorElement> extends ConcurrentL
 			if ((current.wallclock+mpo) >= leftInterval && 
 					(current.wallclock+mpo) <= rightInterval )
 				played++;
+			else if ((current.wallclock+mpo) <= leftInterval)
+				playedLate++;
+			else playedEarly++;
 		}
 		else {
 			if (playoutStarted) elem.meaning = Registry.PLAYOUT_HOLD;

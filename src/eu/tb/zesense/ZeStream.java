@@ -90,8 +90,5 @@ public class ZeStream {
 	public void finalStatistics() {
 		// here I print the stats that i need.
 		System.out.println("---- Statistics for "+resource+" ----");
-		
-		
-		
 	}
 }

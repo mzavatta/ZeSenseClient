@@ -2,6 +2,8 @@ package eu.tb.zesense;
 
 public class Registry {
 	
+	public static final boolean REPETITION_ENABLED = false;
+	
 	// resource URI path used for discovery
 	public static final String DISCOVERY_RESOURCE = "/.well-known/core";
 
@@ -22,9 +24,10 @@ public class Registry {
 	public static final int DATAPOINT	 = 1;
 	public static final int SENDREPORT = 2;
 	public static final int RECREPORT	 = 3;
+	public static final int RETRANSMISSION = 4;
 	
 	
-	public static final int BLIND_DELAY = /* 225000000 */ 0;
+	public static final int BLIND_DELAY = 225000000 /* 0 */;
 
 	
 	/* <source>/hardware/libhardware/include/hardware/sensors.h */
