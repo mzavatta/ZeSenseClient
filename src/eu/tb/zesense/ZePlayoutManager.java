@@ -16,6 +16,12 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	long playoutFirstTime;
 	int playoutTicks;
 	
+	/* time and interval (in system clock terms)
+	 * at the last playout request */
+	long now;
+	long leftInterval;
+	long rightInterval;
+	
 	/* Internal non-functional stats. */
 	int holdcount;
 	int underflowCount;
@@ -45,15 +51,18 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		played = 0;
 		duplicatesSkipped = 0;
 		current = null;
+		now = 0;
+		leftInterval = 0;
+		rightInterval = 0;
 	}
 	
 	
 	public synchronized ZePlayoutElement<E> get() {
 		
 		/* sample current absolute time. */
-		long now = playoutToSystem();
-		long leftInterval = now-playoutHalfPer;
-		long rightInterval = now+playoutHalfPer;
+		now = playoutToSystem();
+		leftInterval = now-playoutHalfPer;
+		rightInterval = now+playoutHalfPer;
 
 		/* sample it once from the master and use
 		 * the same value for the whole playout request
@@ -145,9 +154,18 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		//System.out.println("Holdcount reset at "+holdcount);
 	}
 		
-	//In order to synchronize the superclass' add method
+	/* the superclass add() only rejects the sample if already present
+	 * our override rejects the sample if it's late.
+	 * (non-Javadoc)
+	 * @see java.util.TreeSet#add(java.lang.Object)
+	 */
+	@Override
 	public synchronized boolean add(E elem) {
-		return super.add(elem);
+		if (now!=0 && (elem.wallclock+master.mpo) < leftInterval ) {
+			System.out.println("Rejected insertion in buffer, sample is late");
+			return false;
+		}
+		else return super.add(elem);
 	}
 	
 	/*

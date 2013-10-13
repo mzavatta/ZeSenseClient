@@ -144,9 +144,8 @@ public class ZeSenseClient extends JFrame {
 	static int accelRetransmittedPacketCount = 0;
 	//retransmitted packets that arrive before their original (those that arrive after their original
 	//are filtered by californium)
-	static int accelDuplicateBufferedSample = 0; //duplicates that arrived before their originals
-	/* this minus duplicates discarded by the buffer
-	(so those that are late) = useful duplicates */
+	static int accelDuplicateBufferedSample = 0;
+	/* duplicates that arrived before their originals and are not late i.e. useful duplicates */
 	
 	static int proxTotalNotifReceived = 0;
 	static int proxDataNotifReceived = 0;
@@ -317,8 +316,8 @@ public class ZeSenseClient extends JFrame {
 											accelDuplicateBufferedSample++;
 									}
 									else {
-										System.out.println("Accel sample already in buffer, "+
-														"not inserting.");
+										System.out.println("Accel sample already in buffer or late, "+
+														"insertion rejected.");
 										accelRepeatedCount++;
 									}
 
@@ -1223,7 +1222,7 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
 		System.out.println("of which are retransmissions arrived before the original:"+accelRetransmittedPacketCount);
 		System.out.println("Samples received (repeated included):"+accelStream.samplesReceived); //for the moment
-		System.out.println("of which were duplicates arrived before original:"+accelDuplicateBufferedSample);
+		System.out.println("of which were useful duplicates:"+accelDuplicateBufferedSample);
 		System.out.println("Samples repeated:"+accelRepeatedCount);
 		System.out.println("Sender reports received:"+accelSRRec);
 		System.out.println("Receiver reports sent:"+accelRRSent);
