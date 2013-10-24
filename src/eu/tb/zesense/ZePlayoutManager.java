@@ -177,12 +177,12 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	 */
 	/* MIRROR CHANGES IN ZeDumbPlayoutManager!! */
 	long playoutToSystem() {
-		System.out.println("Inside playoutToSystem, playoutTicks:"+Integer.toString(playoutTicks));
+		//System.out.println("Inside playoutToSystem, playoutTicks:"+Integer.toString(playoutTicks));
 		int ticksWrap = playoutTicks % 10;
 		playoutTicks++;
 		if ( true /*ticksWrap == 0*/) { //first call or every ten calls
 			//playoutTicks=1;
-			System.out.println("tickswrap = 0, adjusting");
+			//System.out.println("tickswrap = 0, adjusting");
 			playoutFirstTime = System.nanoTime();
 			return playoutFirstTime;
 		}

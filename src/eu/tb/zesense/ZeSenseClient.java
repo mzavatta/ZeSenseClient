@@ -1001,6 +1001,7 @@ public class ZeSenseClient extends JFrame {
 	void zeSenseClient () {
 		
 		System.out.println("This thread:"+Thread.currentThread().getId());
+		System.out.println(System.getProperty("java.version"));
 	
 		//Lock lock = new ReentrantLock();
 		//globalExit = lock.newCondition();
