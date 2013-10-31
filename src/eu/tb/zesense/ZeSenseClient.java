@@ -503,8 +503,8 @@ public class ZeSenseClient extends JFrame {
 									recStream.toWallclock(pevent);
 									boolean succ = proxPlayoutManager.add(pevent);
 									if (succ) {
-										meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
-												proxPlayoutManager.size());
+										//meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
+										//		proxPlayoutManager.size());
 										
 										if (pevent.duplicate)
 											proxDuplicateBufferedSample++;
@@ -687,8 +687,8 @@ public class ZeSenseClient extends JFrame {
 									recStream.toWallclock(pevent);
 									boolean succ = lightPlayoutManager.add(pevent);
 									if (succ) {
-										meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
-												lightPlayoutManager.size());
+										//meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
+										//		lightPlayoutManager.size());
 										
 										if (pevent.duplicate)
 											lightDuplicateBufferedSample++;
@@ -876,8 +876,8 @@ public class ZeSenseClient extends JFrame {
 									recStream.toWallclock(event);
 									boolean succ = gyroPlayoutManager.add(event);
 									if (succ) {
-										meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
-													gyroPlayoutManager.size());
+										//meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
+										//			gyroPlayoutManager.size());
 										
 										if (event.duplicate)
 											gyroDuplicateBufferedSample++;
@@ -1064,7 +1064,7 @@ public class ZeSenseClient extends JFrame {
 			e2.printStackTrace();
 		}
 		
-	
+		/*
 		ZeAccelRecThread accelThread = new ZeAccelRecThread();
 		accelThread.start();
 		try {
@@ -1072,6 +1072,7 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
+		*/
 		
 		
 		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
@@ -1102,6 +1103,7 @@ public class ZeSenseClient extends JFrame {
 		
 		System.out.println("------- ZeSense Client ---------");
 		System.out.println(new Date().toString());
+		/*
 		System.out.println("--- Accelerometer");
 		System.out.println("Total notifications received:"+accelTotalNotifReceived);
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
@@ -1116,6 +1118,7 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+accelPlayoutManager.size());
 		System.out.println("Samples skipped:"+accelPlayoutManager.skipped);
 		System.out.println("---");
+		*/
 		System.out.println("--- Proximity");
 		System.out.println("Total notifications received:"+proxTotalNotifReceived);
 		System.out.println("Data notifications received:"+proxDataNotifReceived);
