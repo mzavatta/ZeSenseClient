@@ -161,7 +161,7 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 	 */
 	@Override
 	public synchronized boolean add(E elem) {
-		if (now!=0 && (elem.wallclock+master.mpo) < leftInterval ) {
+		if (now!=0 && (elem.wallclock+master.mpo) < rightInterval /*leftInterval*/) {
 			System.out.println("Rejected insertion in buffer, sample is late");
 			return false;
 		}
