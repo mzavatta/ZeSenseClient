@@ -67,6 +67,8 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.TreeSet;
 import java.util.concurrent.locks.Condition;
 import java.util.logging.Level;
 
@@ -104,22 +106,27 @@ public class ZeSenseClient extends JFrame {
 	DatagramSocket testSocket;
 	
 	ZePlayoutManager<ZeAccelElement> accelPlayoutManager;
+	HashMap<Integer, ZeSampleRegisterEntry> accelSampleRegister;
 	ZeAccelDisplayDevice accelDev;
 	ZeStream accelStream;
 	
 	ZePlayoutManager<ZeProxElement> proxPlayoutManager;
+	HashMap<Integer, ZeSampleRegisterEntry> proxSampleRegister;
 	ZeProxDisplayDevice proxDev;
 	ZeStream proxStream;
 	
 	ZePlayoutManager<ZeLightElement> lightPlayoutManager;
+	HashMap<Integer, ZeSampleRegisterEntry> lightSampleRegister;
 	ZeLightDisplayDevice lightDev;
 	ZeStream lightStream;
 	
 	ZePlayoutManager<ZeOrientElement> orientPlayoutManager;
+	HashMap<Integer, ZeSampleRegisterEntry> orientSampleRegister;
 	ZeOrientDisplayDevice orientDev;
 	ZeStream orientStream;
 	
 	ZePlayoutManager<ZeGyroElement> gyroPlayoutManager;
+	HashMap<Integer, ZeSampleRegisterEntry> gyroSampleRegister;
 	ZeGyroDisplayDevice gyroDev;
 	ZeStream gyroStream;
 	
@@ -139,31 +146,43 @@ public class ZeSenseClient extends JFrame {
 	
 	static int accelTotalNotifReceived = 0;
 	static int accelDataNotifReceived = 0;
-	static int accelDataBeforeTiming = 0;
-	static int accelRepeatedCount = 0;
-	static int accelRetransmittedPacketCount = 0; //retransmitted packets that arrive before their original (those that arrive after their original are filtered by californium)
-	static int accelDuplicateBufferedSample = 0; // duplicates that arrived before their originals and are not late i.e. useful duplicates */
+	static int accelDataNotifBeforeTiming = 0;
+	static int accelBeforeRetransmissions = 0; //retransmitted packets that arrive before their original (those that arrive after their original are filtered by californium)
+	static int accelArrivedDuplicates = 0;
+	static int accelUsefulDuplicates = 0;
+	static int accelBeforeDuplicates = 0;
+	static int accelSamplesOnlyOriginal = 0;
+	static int accelSamplesOnlyDuplicate = 0;
 	
 	static int proxTotalNotifReceived = 0;
 	static int proxDataNotifReceived = 0;
-	static int proxDataBeforeTiming = 0;
-	static int proxRepeatedCount = 0;
-	static int proxRetransmittedPacketCount = 0;
-	static int proxDuplicateBufferedSample = 0;
+	static int proxDataNotifBeforeTiming = 0;
+	static int proxBeforeRetransmissions = 0;
+	static int proxArrivedDuplicates = 0;
+	static int proxUsefulDuplicates = 0;
+	static int proxBeforeDuplicates = 0;
+	static int proxSamplesOnlyOriginal = 0;
+	static int proxSamplesOnlyDuplicate = 0;
 	
 	static int lightTotalNotifReceived = 0;
 	static int lightDataNotifReceived = 0;
-	static int lightDataBeforeTiming = 0;
-	static int lightRepeatedCount = 0;
-	static int lightRetransmittedPacketCount = 0;
-	static int lightDuplicateBufferedSample = 0;
+	static int lightDataNotifBeforeTiming = 0;
+	static int lightBeforeRetransmissions = 0;
+	static int lightArrivedDuplicates = 0;
+	static int lightUsefulDuplicates = 0;
+	static int lightBeforeDuplicates = 0;
+	static int lightSamplesOnlyOriginal = 0;
+	static int lightSamplesOnlyDuplicate = 0;
 	
 	static int gyroTotalNotifReceived = 0;
 	static int gyroDataNotifReceived = 0;
-	static int gyroDataBeforeTiming = 0;
-	static int gyroRepeatedCount = 0;
-	static int gyroRetransmittedPacketCount = 0;
-	static int gyroDuplicateBufferedSample = 0;
+	static int gyroDataNotifBeforeTiming = 0;
+	static int gyroBeforeRetransmissions = 0;
+	static int gyroArrivedDuplicates = 0;
+	static int gyroUsefulDuplicates = 0;
+	static int gyroBeforeDuplicates = 0;
+	static int gyroSamplesOnlyOriginal = 0;
+	static int gyroSamplesOnlyDuplicate = 0;
 	
 	static int rtCount = 0;
 
@@ -187,12 +206,17 @@ public class ZeSenseClient extends JFrame {
 			
 			System.out.println("Hello from thread "+Thread.currentThread().getName());
 			
+			/* Initialize playout manager. */
 			accelPlayoutManager = new ZePlayoutManager<ZeAccelElement>();
 			accelPlayoutManager.master = masterPlayoutManager;
 			accelPlayoutManager.playoutFreq = Registry.ACCEL_PLAYOUT_FREQ;
 			accelPlayoutManager.playoutPer = Registry.ACCEL_PLAYOUT_PERIOD * 1000000;
 			accelPlayoutManager.playoutHalfPer = Registry.ACCEL_PLAYOUT_HALF_PERIOD * 1000000;
 			
+			/* Initialize samples register. */
+			accelSampleRegister = new HashMap<Integer, ZeSampleRegisterEntry>();
+			
+			/* Tuno on display device. */
 			accelDev = new ZeAccelDisplayDevice();
 			accelDev.playoutManager = accelPlayoutManager;
 			accelDev.meter = meters;
@@ -241,7 +265,7 @@ public class ZeSenseClient extends JFrame {
 							accelDataNotifReceived++;
 							
 							if (packetType == Registry.RETRANSMISSION) {
-								accelRetransmittedPacketCount++;
+								accelBeforeRetransmissions++;
 								System.out.println("Got Accel Retransmitted Packet MID:"+
 								Integer.toString(response.getMID()));
 							}
@@ -267,6 +291,12 @@ public class ZeSenseClient extends JFrame {
 								
 								int timestamp = dataStream.readInt();
 								
+								ZeSampleRegisterEntry entry = accelSampleRegister.get(timestamp);
+								if (entry == null) {
+									entry = new ZeSampleRegisterEntry(timestamp);
+									accelSampleRegister.put(timestamp, entry);
+								}
+								
 								ZeAccelElement event = new ZeAccelElement();
 								event.x = Float.parseFloat(new String(Arrays
 										.copyOfRange(pay, offsetValue, offsetValue+19 )));
@@ -277,14 +307,18 @@ public class ZeSenseClient extends JFrame {
 								event.timestamp = timestamp;
 								event.sequenceNumber = sequenceNumber;
 								event.sensorId = Registry.SENSOR_TYPE_ACCELEROMETER;
-								//event.meaning = Registry.PLAYOUT_VALID;
 								
-								/* mark if this sample is a second or more attempt by the server
-								 * i.e. a duplicate */
+								/* detect if this sample is a duplicate */
 								if (packetType == Registry.RETRANSMISSION ||
-										(k==0 && Registry.REPETITION_ENABLED) )
+										(k==0 && Registry.REPETITION_ENABLED) ) {
 									event.duplicate = true;
-								else event.duplicate = false;
+									entry.gotDuplicate = true;
+								}
+								else {
+									event.duplicate = false;
+									entry.gotOriginal = true;
+									if (!entry.gotDuplicate) entry.firstOriginal = true;
+								}
 								
 								offsetValue += (Registry.ACCEL_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.ACCEL_SAMPLE_LENGTH);
@@ -307,27 +341,20 @@ public class ZeSenseClient extends JFrame {
 										/* This operation seems to give a race condition with its
 										 * symmetrical one in ZeAccelDisplayDevice. For the moment
 										 * only update the buffer chart in ZeAccelDisplayDevice. The
-										 * chart stays enough good.
+										 * chart is good enough anyhow.
 										 */
 										//meters.accelBufferSeries.add(meters.accelBufferSeries.getItemCount()+1,
 										//		accelPlayoutManager.size());
 										
-										/* increase counter if a duplicate has arrived
-										 * before its original.
-										 */
-										if (event.duplicate)
-											accelDuplicateBufferedSample++;
+										entry.useful = true;
 									}
-									else {
-										System.out.println("Accel sample already in buffer or late, "+
+									else System.out.println("Accel sample already in buffer or late, "+
 														"insertion rejected.");
-										accelRepeatedCount++;
-									}
 
 								}
 								else {
 									System.out.println("Not sending to playout, timing still unknown.");
-									accelDataBeforeTiming++;
+									accelDataNotifBeforeTiming++;
 								}
 							
 							}
@@ -403,12 +430,17 @@ public class ZeSenseClient extends JFrame {
 			
 			System.out.println("Hello from thread "+Thread.currentThread().getName());
 			
+			/* Initialize playout manager. */
 			proxPlayoutManager = new ZePlayoutManager<ZeProxElement>();
 			proxPlayoutManager.master = masterPlayoutManager;
 			proxPlayoutManager.playoutFreq = Registry.PROX_PLAYOUT_FREQ;
 			proxPlayoutManager.playoutPer = Registry.PROX_PLAYOUT_PERIOD * 1000000;
 			proxPlayoutManager.playoutHalfPer = Registry.PROX_PLAYOUT_HALF_PERIOD * 1000000;
+					
+			/* Initialize samples register. */
+			proxSampleRegister = new HashMap<Integer, ZeSampleRegisterEntry>();
 			
+			/* Turn on display device. */
 			proxDev = new ZeProxDisplayDevice();
 			proxDev.playoutManager = proxPlayoutManager;
 			proxDev.meter = meters;
@@ -457,7 +489,7 @@ public class ZeSenseClient extends JFrame {
 							proxDataNotifReceived++;
 							
 							if (packetType == Registry.RETRANSMISSION) {
-								proxRetransmittedPacketCount++;
+								proxBeforeRetransmissions++;
 								System.out.println("Got Prox Retransmitted Packet MID:"+
 								Integer.toString(response.getMID()));
 							}
@@ -473,19 +505,30 @@ public class ZeSenseClient extends JFrame {
 								
 								int timestamp = dataStream.readInt();
 								
-								ZeProxElement pevent = new ZeProxElement();
-								pevent.distance = Float.parseFloat(new String(Arrays
-										.copyOfRange(pay, offsetValue, offsetValue+19)));
-								pevent.timestamp = timestamp;
-								pevent.sequenceNumber = sequenceNumber;
-								pevent.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
+								ZeSampleRegisterEntry entry = proxSampleRegister.get(timestamp);
+								if (entry == null) {
+									entry = new ZeSampleRegisterEntry(timestamp);
+									proxSampleRegister.put(timestamp, entry);
+								}
 								
-								/* mark if this sample is a second or more attempt by the server
-								 * i.e. a duplicate */
+								ZeProxElement pelement = new ZeProxElement();
+								pelement.distance = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								pelement.timestamp = timestamp;
+								pelement.sequenceNumber = sequenceNumber;
+								pelement.sensorId = Registry.SENSOR_TYPE_PROXIMITY;
+								
+								/* detect if this sample is a duplicate */
 								if (packetType == Registry.RETRANSMISSION ||
-										(k==0 && Registry.REPETITION_ENABLED) )
-									pevent.duplicate = true;
-								else pevent.duplicate = false;
+										(k==0 && Registry.REPETITION_ENABLED) ) {
+									pelement.duplicate = true;
+									entry.gotDuplicate = true;
+								}
+								else {
+									pelement.duplicate = false;
+									entry.gotOriginal = true;
+									if (!entry.gotDuplicate) entry.firstOriginal = true;
+								}
 								
 								offsetValue += (Registry.PROX_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.PROX_SAMPLE_LENGTH);
@@ -497,27 +540,24 @@ public class ZeSenseClient extends JFrame {
 										" length:"+length+
 										" ts:"+timestamp+
 										" sn"+sequenceNumber+
-										" dist:"+pevent.distance);
+										" dist:"+pelement.distance);
 								
 								if (recStream.timingReady) {
-									recStream.toWallclock(pevent);
-									boolean succ = proxPlayoutManager.add(pevent);
+									recStream.toWallclock(pelement);
+									boolean succ = proxPlayoutManager.add(pelement);
 									if (succ) {
 										//meters.proxBufferSeries.add(meters.proxBufferSeries.getItemCount()+1,
 										//		proxPlayoutManager.size());
 										
-										if (pevent.duplicate)
-											proxDuplicateBufferedSample++;
+										entry.useful = true;
+										
 									}
-									else {
-										System.out.println("Prox sample already in buffer or late, "+
+									else System.out.println("Prox sample already in buffer or late, "+
 												"insertion rejected.");
-										proxRepeatedCount++;
-									}
 
 								}
 								else {
-									proxDataBeforeTiming++;
+									proxDataNotifBeforeTiming++;
 									System.out.println("Not sending to playout, timing still unknown.");
 								}
 							}
@@ -587,12 +627,17 @@ public class ZeSenseClient extends JFrame {
 			
 			System.out.println("Hello from thread "+Thread.currentThread().getName());
 			
+			/* Initialize playout manager. */
 			lightPlayoutManager = new ZePlayoutManager<ZeLightElement>();
 			lightPlayoutManager.master = masterPlayoutManager;
 			lightPlayoutManager.playoutFreq = Registry.LIGHT_PLAYOUT_FREQ;
 			lightPlayoutManager.playoutPer = Registry.LIGHT_PLAYOUT_PERIOD * 1000000;
 			lightPlayoutManager.playoutHalfPer = Registry.LIGHT_PLAYOUT_HALF_PERIOD * 1000000;
 			
+			/* Initialize samples register. */
+			lightSampleRegister = new HashMap<Integer, ZeSampleRegisterEntry>();
+			
+			/* Turn on display device. */
 			lightDev = new ZeLightDisplayDevice();
 			lightDev.playoutManager = lightPlayoutManager;
 			lightDev.meter = meters;
@@ -641,7 +686,7 @@ public class ZeSenseClient extends JFrame {
 							lightDataNotifReceived++;
 							
 							if (packetType == Registry.RETRANSMISSION) {
-								lightRetransmittedPacketCount++;
+								lightBeforeRetransmissions++;
 								System.out.println("Got Light Retransmitted Packet MID:"+
 								Integer.toString(response.getMID()));
 							}
@@ -657,19 +702,30 @@ public class ZeSenseClient extends JFrame {
 								
 								int timestamp = dataStream.readInt();
 								
-								ZeLightElement pevent = new ZeLightElement();
-								pevent.light = Float.parseFloat(new String(Arrays
-										.copyOfRange(pay, offsetValue, offsetValue+19)));
-								pevent.timestamp = timestamp;
-								pevent.sequenceNumber = sequenceNumber;
-								pevent.sensorId = Registry.SENSOR_TYPE_LIGHT;
+								ZeSampleRegisterEntry entry = lightSampleRegister.get(timestamp);
+								if (entry == null) {
+									entry = new ZeSampleRegisterEntry(timestamp);
+									lightSampleRegister.put(timestamp, entry);
+								}
 								
-								/* mark if this sample is a second or more attempt by the server
-								 * i.e. a duplicate */
+								ZeLightElement lelement = new ZeLightElement();
+								lelement.light = Float.parseFloat(new String(Arrays
+										.copyOfRange(pay, offsetValue, offsetValue+19)));
+								lelement.timestamp = timestamp;
+								lelement.sequenceNumber = sequenceNumber;
+								lelement.sensorId = Registry.SENSOR_TYPE_LIGHT;
+								
+								/* detect if this sample is a duplicate */
 								if (packetType == Registry.RETRANSMISSION ||
-										(k==0 && Registry.REPETITION_ENABLED) )
-									pevent.duplicate = true;
-								else pevent.duplicate = false;
+										(k==0 && Registry.REPETITION_ENABLED) ) {
+									lelement.duplicate = true;
+									entry.gotDuplicate = true;
+								}
+								else {
+									lelement.duplicate = false;
+									entry.gotOriginal = true;
+									if (!entry.gotDuplicate) entry.firstOriginal = true;
+								}
 								
 								offsetValue += (Registry.LIGHT_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.LIGHT_SAMPLE_LENGTH);
@@ -681,26 +737,22 @@ public class ZeSenseClient extends JFrame {
 										" length:"+length+
 										" ts:"+timestamp+
 										" sn"+sequenceNumber+
-										" light:"+pevent.light);
+										" light:"+lelement.light);
 								
 								if (recStream.timingReady) {
-									recStream.toWallclock(pevent);
-									boolean succ = lightPlayoutManager.add(pevent);
+									recStream.toWallclock(lelement);
+									boolean succ = lightPlayoutManager.add(lelement);
 									if (succ) {
 										//meters.lightBufferSeries.add(meters.lightBufferSeries.getItemCount()+1,
 										//		lightPlayoutManager.size());
 										
-										if (pevent.duplicate)
-											lightDuplicateBufferedSample++;
+										entry.useful = true;
 									}
-									else {
-										System.out.println("Light sample already in buffer or late, "+
+									else System.out.println("Light sample already in buffer or late, "+
 												"insertion rejected.");
-										lightRepeatedCount++;
-									}
 								}
 								else {
-									lightDataBeforeTiming++;
+									lightDataNotifBeforeTiming++;
 									System.out.println("Not sending to playout, timing still unknown.");
 								}
 							}
@@ -770,12 +822,17 @@ public class ZeSenseClient extends JFrame {
 			
 			System.out.println("Hello from thread "+Thread.currentThread().getName());
 			
+			/* Initialize playout manager. */
 			gyroPlayoutManager = new ZePlayoutManager<ZeGyroElement>();
 			gyroPlayoutManager.master = masterPlayoutManager;
 			gyroPlayoutManager.playoutFreq = Registry.GYRO_PLAYOUT_FREQ;
 			gyroPlayoutManager.playoutPer = Registry.GYRO_PLAYOUT_PERIOD * 1000000;
 			gyroPlayoutManager.playoutHalfPer = Registry.GYRO_PLAYOUT_HALF_PERIOD * 1000000;
 			
+			/* Initialize samples register. */
+			gyroSampleRegister = new HashMap<Integer, ZeSampleRegisterEntry>();
+			
+			/* Turn on display device. */
 			gyroDev = new ZeGyroDisplayDevice();
 			gyroDev.playoutManager = gyroPlayoutManager;
 			gyroDev.meter = meters;
@@ -824,7 +881,7 @@ public class ZeSenseClient extends JFrame {
 							gyroDataNotifReceived++;
 							
 							if (packetType == Registry.RETRANSMISSION) {
-								gyroRetransmittedPacketCount++;
+								gyroBeforeRetransmissions++;
 								System.out.println("Got Gyro Retransmitted Packet MID:"+
 								Integer.toString(response.getMID()));
 							}
@@ -840,6 +897,12 @@ public class ZeSenseClient extends JFrame {
 							
 								int timestamp = dataStream.readInt();
 								
+								ZeSampleRegisterEntry entry = gyroSampleRegister.get(timestamp);
+								if (entry == null) {
+									entry = new ZeSampleRegisterEntry(timestamp);
+									gyroSampleRegister.put(timestamp, entry);
+								}
+								
 								ZeGyroElement event = new ZeGyroElement();
 								event.x = Float.parseFloat(new String(Arrays
 										.copyOfRange(pay, offsetValue, offsetValue+19)));
@@ -851,12 +914,17 @@ public class ZeSenseClient extends JFrame {
 								event.sequenceNumber = sequenceNumber;
 								event.sensorId = Registry.SENSOR_TYPE_GYROSCOPE;
 								
-								/* mark if this sample is a second or more attempt by the server
-								 * i.e. a duplicate */
+								/* detect if this sample is a duplicate */
 								if (packetType == Registry.RETRANSMISSION ||
-										(k==0 && Registry.REPETITION_ENABLED) )
+										(k==0 && Registry.REPETITION_ENABLED) ) {
 									event.duplicate = true;
-								else event.duplicate = false;
+									entry.gotDuplicate = true;
+								}
+								else {
+									event.duplicate = false;
+									entry.gotOriginal = true;
+									if (!entry.gotDuplicate) entry.firstOriginal = true;
+								}
 								
 								offsetValue += (Registry.GYRO_SAMPLE_LENGTH + Registry.RTPTS_LENGTH);
 								dataStream.skip(Registry.GYRO_SAMPLE_LENGTH);
@@ -879,17 +947,13 @@ public class ZeSenseClient extends JFrame {
 										//meters.gyroBufferSeries.add(meters.gyroBufferSeries.getItemCount()+1,
 										//			gyroPlayoutManager.size());
 										
-										if (event.duplicate)
-											gyroDuplicateBufferedSample++;
+										entry.useful = true;
 									}
-									else {
-										System.out.println("Gyro sample already in buffer or late, "+
+									else System.out.println("Gyro sample already in buffer or late, "+
 												"insertion rejected.");
-										gyroRepeatedCount++;
-									}
 								}
 								else {
-									gyroDataBeforeTiming++;
+									gyroDataNotifBeforeTiming++;
 									System.out.println("Not sending to playout, timing still unknown.");
 								}
 							}
@@ -1055,7 +1119,7 @@ public class ZeSenseClient extends JFrame {
 		}
 		
 		
-		
+		/*
 		ZeLightRecThread lightThread = new ZeLightRecThread();
 		lightThread.start();
 		try {
@@ -1063,8 +1127,8 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
+		*/
 		
-		/*
 		ZeAccelRecThread accelThread = new ZeAccelRecThread();
 		accelThread.start();
 		try {
@@ -1072,11 +1136,12 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
-		*/
 		
 		
+		/*
 		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
 		gyroThread.start();
+		*/
 		
 		
 		while (loop) {
@@ -1099,68 +1164,149 @@ public class ZeSenseClient extends JFrame {
 			e.printStackTrace();
 		}
 		*/
-
+		
+		for (ZeSampleRegisterEntry entr : accelSampleRegister.values()) {
+		    if (entr.gotDuplicate) {
+		    	accelArrivedDuplicates++;
+		    	if (!entr.gotOriginal) accelSamplesOnlyDuplicate++;
+		    	if (!entr.firstOriginal) {
+		    		accelBeforeDuplicates++;
+		    		if (entr.useful)  accelUsefulDuplicates++;
+		    	}
+		    }
+		    if (entr.gotOriginal) {
+		    	if (!entr.gotDuplicate) accelSamplesOnlyOriginal++;
+		    }
+		}
+		
+		for (ZeSampleRegisterEntry entr : proxSampleRegister.values()) {
+		    if (entr.gotDuplicate) {
+		    	proxArrivedDuplicates++;
+		    	if (!entr.gotOriginal) proxSamplesOnlyDuplicate++;
+		    	if (!entr.firstOriginal) {
+		    		proxBeforeDuplicates++;
+		    		if (entr.useful)  proxUsefulDuplicates++;
+		    	}
+		    }
+		    if (entr.gotOriginal) {
+		    	if (!entr.gotDuplicate) proxSamplesOnlyOriginal++;
+		    }
+		}
+		/*
+		for (ZeSampleRegisterEntry entr : gyroSampleRegister.values()) {
+		    if (entr.gotDuplicate) {
+		    	gyroArrivedDuplicates++;
+		    	if (!entr.gotOriginal) gyroSamplesOnlyDuplicate++;
+		    	if (!entr.firstOriginal) {
+		    		gyroBeforeDuplicates++;
+		    		if (entr.useful)  gyroUsefulDuplicates++;
+		    	}
+		    }
+		    if (entr.gotOriginal) {
+		    	if (!entr.gotDuplicate) gyroSamplesOnlyOriginal++;
+		    }
+		}
+		
+		for (ZeSampleRegisterEntry entr : lightSampleRegister.values()) {
+		    if (entr.gotDuplicate) {
+		    	lightArrivedDuplicates++;
+		    	if (!entr.gotOriginal) lightSamplesOnlyDuplicate++;
+		    	if (!entr.firstOriginal) {
+		    		lightBeforeDuplicates++;
+		    		if (entr.useful)  lightUsefulDuplicates++;
+		    	}
+		    }
+		    if (entr.gotOriginal) {
+		    	if (!entr.gotDuplicate) lightSamplesOnlyOriginal++;
+		    }
+		}
+		*/
 		
 		System.out.println("------- ZeSense Client ---------");
 		System.out.println(new Date().toString());
-		/*
+		
 		System.out.println("--- Accelerometer");
 		System.out.println("Total notifications received:"+accelTotalNotifReceived);
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
-		System.out.println("of which are retransmissions arrived before the original:"+accelRetransmittedPacketCount);
-		System.out.println("Samples received (repeated included):"+accelStream.samplesReceived); //for the moment
-		System.out.println("of which were useful duplicates:"+accelDuplicateBufferedSample);
-		System.out.println("Samples repeated:"+accelRepeatedCount);
+		System.out.println("of which are retransmissions arrived before the original:"+accelBeforeRetransmissions);
+		System.out.println("Samples received (not unique):"+accelStream.samplesReceived);
+		System.out.println("Unique samples:"+accelSampleRegister.size());
+		System.out.println("of which I got both original and duplicate:"+((accelSampleRegister.size()-accelSamplesOnlyOriginal)-accelSamplesOnlyDuplicate));
+		System.out.println("of which got only original:"+accelSamplesOnlyOriginal);
+		System.out.println("of which got only duplicate:"+accelSamplesOnlyDuplicate);
+		System.out.println("Total arrived duplicates:"+accelArrivedDuplicates);
+		System.out.println("of which arrived before original:"+accelBeforeDuplicates);
+		System.out.println("among dups before original, those on time (useful):"+accelUsefulDuplicates);
 		System.out.println("Sender reports received:"+accelSRRec);
 		System.out.println("Receiver reports sent:"+accelRRSent);
-		System.out.println("Data notifs arrived before timing:"+accelDataBeforeTiming);
+		System.out.println("Data notifs arrived before timing:"+accelDataNotifBeforeTiming);
 		System.out.println("Samples played:"+accelPlayoutManager.played);
 		System.out.println("Queue size at stop:"+accelPlayoutManager.size());
 		System.out.println("Samples skipped:"+accelPlayoutManager.skipped);
 		System.out.println("---");
-		*/
+		
 		System.out.println("--- Proximity");
 		System.out.println("Total notifications received:"+proxTotalNotifReceived);
 		System.out.println("Data notifications received:"+proxDataNotifReceived);
-		System.out.println("of which are retransmissions arrived before the original:"+proxRetransmittedPacketCount);
-		System.out.println("Samples received (repetitions included):"+proxStream.samplesReceived); //for the moment
-		System.out.println("of which were useful duplicates:"+proxDuplicateBufferedSample);
-		System.out.println("Samples repeated:"+proxRepeatedCount);
+		System.out.println("of which are retransmissions arrived before the original:"+proxBeforeRetransmissions);
+		System.out.println("Samples received (not unique):"+proxStream.samplesReceived);
+		System.out.println("Unique samples:"+proxSampleRegister.size());
+		System.out.println("of which I got both original and duplicate:"+((proxSampleRegister.size()-proxSamplesOnlyOriginal)-proxSamplesOnlyDuplicate));
+		System.out.println("of which got only original:"+proxSamplesOnlyOriginal);
+		System.out.println("of which got only duplicate:"+proxSamplesOnlyDuplicate);
+		System.out.println("Total arrived duplicates:"+proxArrivedDuplicates);
+		System.out.println("of which arrived before original:"+proxBeforeDuplicates);
+		System.out.println("among dups before original, those on time (useful):"+proxUsefulDuplicates);
 		System.out.println("Sender reports received:"+proxSRRec);
 		System.out.println("Receiver reports sent:"+proxRRSent);
-		System.out.println("Data notifs arrived before timing:"+proxDataBeforeTiming);
+		System.out.println("Data notifs arrived before timing:"+proxDataNotifBeforeTiming);
 		System.out.println("Samples played:"+proxPlayoutManager.played);
 		System.out.println("Queue size at stop:"+proxPlayoutManager.size());
 		System.out.println("Samples skipped:"+proxPlayoutManager.skipped);
 		System.out.println("---");
+		
+		/*
 		System.out.println("--- Gyroscope");
 		System.out.println("Total notifications received:"+gyroTotalNotifReceived);
 		System.out.println("Data notifications received:"+gyroDataNotifReceived);
-		System.out.println("of which are retransmissions arrived before the original:"+gyroRetransmittedPacketCount);
-		System.out.println("Samples received (repetitions included):"+gyroStream.samplesReceived); //for the moment
-		System.out.println("of which were useful duplicates:"+gyroDuplicateBufferedSample);
-		System.out.println("Samples repeated:"+gyroRepeatedCount);
+		System.out.println("of which are retransmissions arrived before the original:"+gyroBeforeRetransmissions);
+		System.out.println("Samples received (not unique):"+gyroStream.samplesReceived); //for the moment
+		System.out.println("Unique samples:"+gyroSampleRegister.size());
+		System.out.println("of which I got both original and duplicate:"+((gyroSampleRegister.size()-gyroSamplesOnlyOriginal)-gyroSamplesOnlyDuplicate));
+		System.out.println("of which got only original:"+gyroSamplesOnlyOriginal);
+		System.out.println("of which got only duplicate:"+gyroSamplesOnlyDuplicate);
+		System.out.println("Total arrived duplicates:"+gyroArrivedDuplicates);
+		System.out.println("of which arrived before original:"+gyroBeforeDuplicates);
+		System.out.println("among dups before original, those on time (useful):"+gyroUsefulDuplicates);
 		System.out.println("Sender reports received:"+gyroSRRec);
 		System.out.println("Receiver reports sent:"+gyroRRSent);
-		System.out.println("Data notifs arrived before timing:"+gyroDataBeforeTiming);
+		System.out.println("Data notifs arrived before timing:"+gyroDataNotifBeforeTiming);
 		System.out.println("Samples played:"+gyroPlayoutManager.played);
 		System.out.println("Queue size at stop:"+gyroPlayoutManager.size());
 		System.out.println("Samples skipped:"+gyroPlayoutManager.skipped);
 		System.out.println("---");
+		
 		System.out.println("--- Light");
 		System.out.println("Total notifications received:"+lightTotalNotifReceived);
 		System.out.println("Data notifications received:"+lightDataNotifReceived);
-		System.out.println("of which are retransmissions arrived before the original:"+lightRetransmittedPacketCount);
-		System.out.println("Samples received (repetitions included):"+lightStream.samplesReceived); //for the moment
-		System.out.println("of which were useful duplicates:"+lightDuplicateBufferedSample);
-		System.out.println("Samples repeated:"+lightRepeatedCount);
+		System.out.println("of which are retransmissions arrived before the original:"+lightBeforeRetransmissions);
+		System.out.println("Samples received (not unique):"+lightStream.samplesReceived); //for the moment
+		System.out.println("Unique samples:"+lightSampleRegister.size());
+		System.out.println("of which I got both original and duplicate:"+((lightSampleRegister.size()-lightSamplesOnlyOriginal)-lightSamplesOnlyDuplicate));
+		System.out.println("of which got only original:"+lightSamplesOnlyOriginal);
+		System.out.println("of which got only duplicate:"+lightSamplesOnlyDuplicate);
+		System.out.println("Total arrived duplicates:"+lightArrivedDuplicates);
+		System.out.println("of which arrived before original:"+lightBeforeDuplicates);
+		System.out.println("among dups before original, those on time (useful):"+lightUsefulDuplicates);
 		System.out.println("Sender reports received:"+lightSRRec);
 		System.out.println("Receiver reports sent:"+lightRRSent);
-		System.out.println("Data notifs arrived before timing:"+lightDataBeforeTiming);
+		System.out.println("Data notifs arrived before timing:"+lightDataNotifBeforeTiming);
 		System.out.println("Samples played:"+lightPlayoutManager.played);
 		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
 		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
 		System.out.println("---");
+		*/
+		
 	}
 	
 	// payload given null if no payload applies
