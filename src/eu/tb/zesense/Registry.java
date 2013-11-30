@@ -109,5 +109,9 @@ public class Registry {
 	public static final String GYRO_RESOURCE_PATH = "/gyroscope";
 	
 	public static final int REDRAW_THRESHOLD = 500;
+	
+	public static final int INSERTION_REJECTED_LATE = 1;
+	public static final int INSERTION_REJECTED_PRESENT = 2;
+	public static final int INSERTION_OK = 0;
 
 }

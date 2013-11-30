@@ -163,6 +163,11 @@ public class ZeSenseClient extends JFrame {
 	static int proxBeforeDuplicates = 0;
 	static int proxSamplesOnlyOriginal = 0;
 	static int proxSamplesOnlyDuplicate = 0;
+	static int proxBothArrivedLate = 0;
+	static int proxBothArrivedOneUseful = 0;
+	static int proxExactlyOneArrivedUseful = 0;
+	static int proxExactlyOneArrivedLate = 0;
+	static int proxNoneArrived = 0;
 	
 	static int lightTotalNotifReceived = 0;
 	static int lightDataNotifReceived = 0;
@@ -173,6 +178,11 @@ public class ZeSenseClient extends JFrame {
 	static int lightBeforeDuplicates = 0;
 	static int lightSamplesOnlyOriginal = 0;
 	static int lightSamplesOnlyDuplicate = 0;
+	static int lightBothArrivedLate = 0;
+	static int lightBothArrivedOneUseful = 0;
+	static int lightExactlyOneArrivedUseful = 0;
+	static int lightExactlyOneArrivedLate = 0;
+	static int lightNoneArrived = 0;
 	
 	static int gyroTotalNotifReceived = 0;
 	static int gyroDataNotifReceived = 0;
@@ -183,6 +193,11 @@ public class ZeSenseClient extends JFrame {
 	static int gyroBeforeDuplicates = 0;
 	static int gyroSamplesOnlyOriginal = 0;
 	static int gyroSamplesOnlyDuplicate = 0;
+	static int gyroBothArrivedLate = 0;
+	static int gyroBothArrivedOneUseful = 0;
+	static int gyroExactlyOneArrivedUseful = 0;
+	static int gyroExactlyOneArrivedLate = 0;
+	static int gyroNoneArrived = 0;
 	
 	static int rtCount = 0;
 
@@ -1119,7 +1134,7 @@ public class ZeSenseClient extends JFrame {
 		}
 		
 		
-		/*
+		
 		ZeLightRecThread lightThread = new ZeLightRecThread();
 		lightThread.start();
 		try {
@@ -1127,8 +1142,8 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
-		*/
 		
+		/*
 		ZeAccelRecThread accelThread = new ZeAccelRecThread();
 		accelThread.start();
 		try {
@@ -1136,12 +1151,12 @@ public class ZeSenseClient extends JFrame {
 		} catch (InterruptedException e2) {
 			e2.printStackTrace();
 		}
+		*/
 		
 		
-		/*
 		ZeGyroRecThread gyroThread = new ZeGyroRecThread();
 		gyroThread.start();
-		*/
+		
 		
 		
 		while (loop) {
@@ -1164,7 +1179,7 @@ public class ZeSenseClient extends JFrame {
 			e.printStackTrace();
 		}
 		*/
-		
+		/*
 		for (ZeSampleRegisterEntry entr : accelSampleRegister.values()) {
 		    if (entr.gotDuplicate) {
 		    	accelArrivedDuplicates++;
@@ -1178,7 +1193,7 @@ public class ZeSenseClient extends JFrame {
 		    	if (!entr.gotDuplicate) accelSamplesOnlyOriginal++;
 		    }
 		}
-		
+		*/
 		for (ZeSampleRegisterEntry entr : proxSampleRegister.values()) {
 		    if (entr.gotDuplicate) {
 		    	proxArrivedDuplicates++;
@@ -1190,9 +1205,19 @@ public class ZeSenseClient extends JFrame {
 		    }
 		    if (entr.gotOriginal) {
 		    	if (!entr.gotDuplicate) proxSamplesOnlyOriginal++;
+		    	else { //got both
+		    		if (entr.useful) proxBothArrivedOneUseful++;
+		    	}
 		    }
+		    if ((entr.gotOriginal ^ entr.gotDuplicate) && entr.useful)
+		    	proxExactlyOneArrivedUseful++;
 		}
-		/*
+		proxBothArrivedLate = proxSampleRegister.size()-proxSamplesOnlyOriginal
+				-proxSamplesOnlyDuplicate-proxBothArrivedOneUseful;
+		proxExactlyOneArrivedLate = proxSamplesOnlyOriginal+proxSamplesOnlyDuplicate
+				-proxExactlyOneArrivedUseful;
+		
+		
 		for (ZeSampleRegisterEntry entr : gyroSampleRegister.values()) {
 		    if (entr.gotDuplicate) {
 		    	gyroArrivedDuplicates++;
@@ -1204,8 +1229,18 @@ public class ZeSenseClient extends JFrame {
 		    }
 		    if (entr.gotOriginal) {
 		    	if (!entr.gotDuplicate) gyroSamplesOnlyOriginal++;
+		    	else { //got both
+		    		if (entr.useful) gyroBothArrivedOneUseful++;
+		    	}
 		    }
+		    if ((entr.gotOriginal ^ entr.gotDuplicate) && entr.useful)
+		    	gyroExactlyOneArrivedUseful++;
 		}
+		gyroBothArrivedLate = gyroSampleRegister.size()-gyroSamplesOnlyOriginal
+				-gyroSamplesOnlyDuplicate-gyroBothArrivedOneUseful;
+		gyroExactlyOneArrivedLate = gyroSamplesOnlyOriginal+gyroSamplesOnlyDuplicate
+				-gyroExactlyOneArrivedUseful;
+		
 		
 		for (ZeSampleRegisterEntry entr : lightSampleRegister.values()) {
 		    if (entr.gotDuplicate) {
@@ -1218,13 +1253,22 @@ public class ZeSenseClient extends JFrame {
 		    }
 		    if (entr.gotOriginal) {
 		    	if (!entr.gotDuplicate) lightSamplesOnlyOriginal++;
+		    	else { //got both
+		    		if (entr.useful) lightBothArrivedOneUseful++;
+		    	}
 		    }
+		    if ((entr.gotOriginal ^ entr.gotDuplicate) && entr.useful)
+		    	lightExactlyOneArrivedUseful++;
 		}
-		*/
+		lightBothArrivedLate = lightSampleRegister.size()-lightSamplesOnlyOriginal
+				-lightSamplesOnlyDuplicate-lightBothArrivedOneUseful;
+		lightExactlyOneArrivedLate = lightSamplesOnlyOriginal+lightSamplesOnlyDuplicate
+				-lightExactlyOneArrivedUseful;
+		
 		
 		System.out.println("------- ZeSense Client ---------");
 		System.out.println(new Date().toString());
-		
+		/*
 		System.out.println("--- Accelerometer");
 		System.out.println("Total notifications received:"+accelTotalNotifReceived);
 		System.out.println("Data notifications received:"+accelDataNotifReceived);
@@ -1244,7 +1288,7 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+accelPlayoutManager.size());
 		System.out.println("Samples skipped:"+accelPlayoutManager.skipped);
 		System.out.println("---");
-		
+		*/
 		System.out.println("--- Proximity");
 		System.out.println("Total notifications received:"+proxTotalNotifReceived);
 		System.out.println("Data notifications received:"+proxDataNotifReceived);
@@ -1252,8 +1296,13 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Samples received (not unique):"+proxStream.samplesReceived);
 		System.out.println("Unique samples:"+proxSampleRegister.size());
 		System.out.println("of which I got both original and duplicate:"+((proxSampleRegister.size()-proxSamplesOnlyOriginal)-proxSamplesOnlyDuplicate));
-		System.out.println("of which got only original:"+proxSamplesOnlyOriginal);
-		System.out.println("of which got only duplicate:"+proxSamplesOnlyDuplicate);
+		System.out.println("   of which both late:"+proxBothArrivedLate);
+		System.out.println("   of which at least one early:"+proxBothArrivedOneUseful);
+		System.out.println("of which I got exactly one:"+(proxSamplesOnlyOriginal+proxSamplesOnlyDuplicate));
+		System.out.println("   got only original:"+proxSamplesOnlyOriginal);
+		System.out.println("   got only duplicate:"+proxSamplesOnlyDuplicate);
+		System.out.println("   useful:"+proxExactlyOneArrivedUseful);
+		System.out.println("   late:"+proxExactlyOneArrivedLate);
 		System.out.println("Total arrived duplicates:"+proxArrivedDuplicates);
 		System.out.println("of which arrived before original:"+proxBeforeDuplicates);
 		System.out.println("among dups before original, those on time (useful):"+proxUsefulDuplicates);
@@ -1265,7 +1314,6 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Samples skipped:"+proxPlayoutManager.skipped);
 		System.out.println("---");
 		
-		/*
 		System.out.println("--- Gyroscope");
 		System.out.println("Total notifications received:"+gyroTotalNotifReceived);
 		System.out.println("Data notifications received:"+gyroDataNotifReceived);
@@ -1273,8 +1321,13 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Samples received (not unique):"+gyroStream.samplesReceived); //for the moment
 		System.out.println("Unique samples:"+gyroSampleRegister.size());
 		System.out.println("of which I got both original and duplicate:"+((gyroSampleRegister.size()-gyroSamplesOnlyOriginal)-gyroSamplesOnlyDuplicate));
-		System.out.println("of which got only original:"+gyroSamplesOnlyOriginal);
-		System.out.println("of which got only duplicate:"+gyroSamplesOnlyDuplicate);
+		System.out.println("   of which both late:"+gyroBothArrivedLate);
+		System.out.println("   of which at least one early:"+gyroBothArrivedOneUseful);
+		System.out.println("of which I got exactly one:"+(gyroSamplesOnlyOriginal+gyroSamplesOnlyDuplicate));		
+		System.out.println("   got only original:"+gyroSamplesOnlyOriginal);
+		System.out.println("   got only duplicate:"+gyroSamplesOnlyDuplicate);
+		System.out.println("   useful:"+gyroExactlyOneArrivedUseful);
+		System.out.println("   late:"+gyroExactlyOneArrivedLate);
 		System.out.println("Total arrived duplicates:"+gyroArrivedDuplicates);
 		System.out.println("of which arrived before original:"+gyroBeforeDuplicates);
 		System.out.println("among dups before original, those on time (useful):"+gyroUsefulDuplicates);
@@ -1293,8 +1346,13 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Samples received (not unique):"+lightStream.samplesReceived); //for the moment
 		System.out.println("Unique samples:"+lightSampleRegister.size());
 		System.out.println("of which I got both original and duplicate:"+((lightSampleRegister.size()-lightSamplesOnlyOriginal)-lightSamplesOnlyDuplicate));
-		System.out.println("of which got only original:"+lightSamplesOnlyOriginal);
-		System.out.println("of which got only duplicate:"+lightSamplesOnlyDuplicate);
+		System.out.println("   of which both late:"+lightBothArrivedLate);
+		System.out.println("   of which at least one early:"+lightBothArrivedOneUseful);
+		System.out.println("of which I got exactly one:"+(lightSamplesOnlyOriginal+lightSamplesOnlyDuplicate));		
+		System.out.println("   got only original:"+lightSamplesOnlyOriginal);
+		System.out.println("   got only duplicate:"+lightSamplesOnlyDuplicate);
+		System.out.println("   useful:"+lightExactlyOneArrivedUseful);
+		System.out.println("   late:"+lightExactlyOneArrivedLate);
 		System.out.println("Total arrived duplicates:"+lightArrivedDuplicates);
 		System.out.println("of which arrived before original:"+lightBeforeDuplicates);
 		System.out.println("among dups before original, those on time (useful):"+lightUsefulDuplicates);
@@ -1305,7 +1363,7 @@ public class ZeSenseClient extends JFrame {
 		System.out.println("Queue size at stop:"+lightPlayoutManager.size());
 		System.out.println("Samples skipped:"+lightPlayoutManager.skipped);
 		System.out.println("---");
-		*/
+		
 		
 	}
 	

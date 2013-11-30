@@ -10,14 +10,18 @@ public class ZeSampleRegisterEntry implements Comparable<ZeSampleRegisterEntry> 
 	boolean gotOriginal	;
 	boolean gotDuplicate;
 	
-	/* either the original or the duplicate played i.e. buffered */
+	/* either the original or the duplicate played i.e. buffered. */
 	boolean useful;
+	
+	/* true if the one that arrived second would have played. */
+	boolean twiceUseful;
 	
 	public ZeSampleRegisterEntry(int timestamp) {
 		this.timestamp = timestamp;
 		gotOriginal = false;
 		gotDuplicate = false;
 		useful = false;
+		twiceUseful = false;
 		firstOriginal = false;
 	}
 	

@@ -168,6 +168,17 @@ public class ZePlayoutManager<E extends ZeSensorElement> extends TreeSet<E> {
 		else return super.add(elem);
 	}
 	
+	public synchronized int zeAdd(E elem) {
+		if (now!=0 && (elem.wallclock+master.mpo) < rightInterval /*leftInterval*/) {
+			System.out.println("Rejected insertion in buffer, sample is late");
+			return Registry.INSERTION_REJECTED_LATE;
+		}
+		else {
+			if (super.add(elem)) return Registry.INSERTION_OK;
+			else return Registry.INSERTION_REJECTED_PRESENT;
+		}
+	}
+	
 	/*
 	 * we could sample the system time at every iteration
 	 * but it would result in always different periods
